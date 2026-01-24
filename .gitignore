@@ -1,0 +1,26 @@
+# Node modules
+node_modules/
+
+# Python virtual environment
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Distribution/Build
+dist/
+build/
+
+# Backend uploads
+backend/uploads/
+
+# IDE/Editor
+.idea/
+.vscode/
+.DS_Store
