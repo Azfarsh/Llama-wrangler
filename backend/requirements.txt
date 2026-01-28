@@ -6,3 +6,5 @@ python-multipart
 python-dotenv
 openpyxl
 pydantic
+numpy
+scikit-learn

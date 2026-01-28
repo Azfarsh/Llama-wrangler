@@ -59,42 +59,69 @@ async def analyze_intent(request: dict = Body(...)):
     df = data_service.load_dataset(file_path)
     profile = data_service.profile_dataset(df)
     
-    # LLM Intent Analysis
+    # Store profile in session for later use
+    sessions[session_id]["profile"] = profile
+    
+    # Agent 1: Intent Understanding Agent
     intent = await llm_service.analyze_intent(user_query, profile)
     
-    # LLM Plan Generation
-    plan = await llm_service.generate_plan(user_query, profile)
+    # Agent 2: Planning Agent
+    plan = await llm_service.generate_plan(user_query, profile, intent)
     
     return {
         "intent": intent,
-        "plan": plan
+        "plan": plan,
+        "profile": profile
     }
 
 @router.post("/execute")
 async def execute_plan(request: dict = Body(...)):
     session_id = request.get("session_id")
     plan = request.get("plan")
+    intent = request.get("intent", {})
     
     if session_id not in sessions:
         raise HTTPException(status_code=404, detail="Session not found")
     
     file_path = sessions[session_id]["file_path"]
     df = data_service.load_dataset(file_path)
+    original_profile = data_service.profile_dataset(df)
     
-    # Execute
-    processed_df = data_service.execute_plan(df, plan)
+    # Execute plan
+    processed_df, execution_log = data_service.execute_plan(df, plan)
+    
+    # Generate processed profile
+    processed_profile = data_service.profile_dataset(processed_df)
+    
+    # Generate insights using Validation & Insight Agent
+    insights = await llm_service.generate_insights(original_profile, processed_profile, execution_log, intent)
     
     # Save processed file
     output_filename = f"{session_id}_processed.csv"
     output_path = os.path.join(settings.UPLOAD_DIR, output_filename)
     processed_df.to_csv(output_path, index=False)
     
+    # Store in session
+    sessions[session_id]["processed_df_path"] = output_path
+    sessions[session_id]["insights"] = insights
+    sessions[session_id]["execution_log"] = execution_log
+    
     return {
         "message": "Execution successful",
         "preview": processed_df.head(10).to_dict(orient='records'),
-        "summary": processed_df.describe(include='all').to_dict(),
+        "profile": processed_profile,
+        "insights": insights,
+        "execution_log": execution_log,
         "download_url": f"/api/download/{output_filename}"
     }
+
+@router.get("/session/{session_id}/insights")
+async def get_insights(session_id: str):
+    if session_id not in sessions:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    insights = sessions[session_id].get("insights", {})
+    return insights
 
 from fastapi.responses import FileResponse
 
