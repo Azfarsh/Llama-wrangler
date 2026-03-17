@@ -1,26 +1,28 @@
-# AutoWrangler AI
+# Excel AI Agent
 
-A fully agentic, LLM-powered data wrangling system that allows non-technical users to prepare datasets using simple natural language instructions. Inspired by the AutoDW research paper (ASE 2024).
+A conversational AI agent that understands natural language and performs intelligent operations on Excel sheets. **Ollama-only** (local LLM), with **RAG** for better context understanding.
 
 ## 🎯 Project Overview
 
-Data wrangling is a critical yet time-consuming step in data science, analytics, and machine learning workflows. Studies show that data professionals spend up to **70-80%** of their time on cleaning, transforming, and preparing data rather than extracting insights.
+The Excel AI Agent lets you:
+- ✅ **Upload** Excel (.xlsx, .xls) or CSV files
+- ✅ **Chat** in natural language: "Sort by Date descending", "Add column Total = Price * Quantity", "Create summary per region"
+- ✅ **Get** structured plans, validated execution, insights, and downloadable output
 
-AutoWrangler AI solves this by:
-- ✅ **No manual coding** - Just describe what you need in natural language
-- ✅ **Automatic understanding** - AI agents analyze your dataset and intent
-- ✅ **Autonomous execution** - Plans and executes transformations automatically
-- ✅ **ML-ready output** - Clean, enriched datasets ready for analytics, ML, or BI tools
+**Flow:** Upload → Profile → RAG-index → Understand Intent (Ollama) → Create Plan → Validate → Execute → Insights → Download
 
 ## 🏗️ System Architecture
 
 ### Backend (Python/FastAPI)
 - **Dataset Profiler** - Analyzes datasets and extracts metadata
-- **Agent Orchestrator** with multiple specialized agents:
-  - **Intent Understanding Agent** (Gemini) - Understands user goals
-  - **Planning Agent** (Gemini) - Creates step-by-step transformation plans
+- **Feature Type Inference (FTI)** - Rule-based column type detection (numerical, categorical, datetime, text, etc.)
+- **Prediction Engineering** - LLM recommends target column and task (classification/regression)
+- **Agent Orchestrator** with multiple agents:
+  - **Intent Understanding Agent** (Ollama/HF) - Understands user goals
+  - **Planning Agent** (Ollama/HF) - Creates step-by-step transformation plans
   - **Execution Agent** (Python) - Performs deterministic data transformations
-  - **Validation & Insight Agent** (Gemini) - Validates results and generates insights
+  - **Validation & Insight Agent** (Ollama/HF) - Validates results and generates insights
+- **Code Generator** - Produces executable Python script for the wrangling pipeline (Jinja2)
 
 ### Frontend (React)
 - Modern, responsive UI with ChatGPT-style chat interface
@@ -34,7 +36,11 @@ AutoWrangler AI solves this by:
 ### Prerequisites
 - Python 3.8+
 - Node.js 16+
-- Google Gemini API Key ([Get one here](https://makersuite.google.com/app/apikey))
+- **Ollama** (lightweight local LLM – runs easily on a laptop). Install from [ollama.com](https://ollama.com), then run:
+  ```bash
+  ollama run llama3.2:3b
+  ```
+  Keep this running in a terminal, or run it once so the model is pulled; the backend will call it when needed.
 
 ### Backend Setup
 
@@ -54,17 +60,15 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-4. Create `.env` file:
+4. (Optional) Create `.env` in `backend/` to override defaults:
 ```bash
 cp .env.example .env
 ```
+- `USE_OLLAMA=true` – Use Ollama (default). Set to `false` to use HuggingFace fallback (requires `pip install transformers torch`).
+- `OLLAMA_BASE_URL=http://localhost:11434` – Ollama API URL.
+- `OLLAMA_MODEL=llama3.2:3b` – Model name (e.g. `phi3:mini`, `llama3.2:3b`).
 
-5. Add your Gemini API key to `.env`:
-```
-GEMINI_API_KEY=your_api_key_here
-```
-
-6. Run the backend server:
+5. Run the backend server:
 ```bash
 python main.py
 ```
@@ -143,13 +147,16 @@ The frontend will run on `http://localhost:5173`
 
 ## 📊 Usage Example
 
-1. **Upload Dataset**: Go to Dashboard and upload a CSV/Excel file
-2. **Describe Intent**: In the chat interface, say something like:
+1. **Upload Dataset**: Go to Dashboard and upload a CSV/Excel file.
+2. **Run full pipeline (Auto)**: On the Processing page, click **"Run full pipeline (Auto)"** to:
+   - Predict target column and task (classification/regression) via LLM
+   - Infer feature types (FTI) for each column
+   - Build and execute a cleaning + enrichment plan
+   - Get insights and download the cleaned dataset + generated Python script.
+3. **Or describe intent**: In the chat, type e.g.:
    - "Clean this dataset and prepare it for machine learning classification"
    - "Remove null values and normalize numeric columns"
-   - "Encode categorical variables and prepare for ML"
-3. **Review Plan**: AI shows the transformation plan
-4. **Get Results**: Download processed dataset with insights
+4. **Get Results**: Download the cleaned dataset and (optionally) the generated Python script from the Download page.
 
 ## 🔬 Research Inspiration
 
@@ -168,9 +175,10 @@ Key enhancements over AutoDW:
 **Backend:**
 - FastAPI (Python web framework)
 - Pandas (Data manipulation)
-- Google Gemini API (LLM)
+- Ollama (local LLM – default) or HuggingFace (optional fallback)
 - scikit-learn (ML preprocessing)
 - NumPy (Numerical operations)
+- Jinja2 (Code generation)
 
 **Frontend:**
 - React 19
@@ -194,6 +202,8 @@ GEMINI_API_KEY=your_gemini_api_key_here
 - `POST /api/upload` - Upload dataset
 - `POST /api/analyze` - Analyze user intent and generate plan
 - `POST /api/execute` - Execute transformation plan
+- `POST /api/wrangle` - **Full AutoDW-style pipeline**: predict target, FTI, build plan, execute, return results
+- `GET /api/code/{session_id}` - Download generated Python wrangling script
 - `GET /api/download/{filename}` - Download processed dataset
 - `GET /api/session/{session_id}/insights` - Get insights for a session
 

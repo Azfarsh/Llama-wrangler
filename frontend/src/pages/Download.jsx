@@ -7,6 +7,15 @@ export default function Download() {
     const [executionLog, setExecutionLog] = useState([]);
     const [processedProfile, setProcessedProfile] = useState(null);
     const downloadUrl = localStorage.getItem('downloadUrl') || '#';
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+    const API_ORIGIN = import.meta.env.VITE_API_ORIGIN || 'http://localhost:8000';
+
+    const buildUrl = (path) => {
+        if (!path) return '#';
+        if (path.startsWith('http://') || path.startsWith('https://')) return path;
+        if (import.meta.env.DEV) return path;
+        return `${API_ORIGIN}${path.startsWith('/') ? path : `/${path}`}`;
+    };
 
     useEffect(() => {
         // Load insights and execution log
@@ -39,11 +48,17 @@ export default function Download() {
         }
     }, []);
 
+    const sessionId = localStorage.getItem('sessionId');
+
     const handleDownload = () => {
-        const fullUrl = downloadUrl.startsWith('http') 
-            ? downloadUrl 
-            : `http://localhost:8000${downloadUrl}`;
+        const fullUrl = buildUrl(downloadUrl);
         window.open(fullUrl, '_blank');
+    };
+
+    const handleDownloadCode = () => {
+        if (!sessionId) return;
+        const url = buildUrl(`${API_BASE_URL}/code/${sessionId}`);
+        window.open(url, '_blank');
     };
 
     const handleNewSession = () => {
@@ -189,14 +204,23 @@ export default function Download() {
 
                 {/* Action Buttons */}
                 <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-8">
-                    <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
                         <button
                             onClick={handleDownload}
-                            className="flex-1 bg-green-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-700 transition-colors shadow-md hover:shadow-lg flex items-center justify-center"
+                            className="flex-1 min-w-[200px] bg-green-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-700 transition-colors shadow-md hover:shadow-lg flex items-center justify-center"
                         >
                             <span className="mr-2">📥</span>
                             Download Clean Dataset
                         </button>
+                        {sessionId && (
+                            <button
+                                onClick={handleDownloadCode}
+                                className="flex-1 min-w-[200px] bg-amber-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-amber-700 transition-colors shadow-md hover:shadow-lg flex items-center justify-center"
+                            >
+                                <span className="mr-2">🐍</span>
+                                Download Python Script
+                            </button>
+                        )}
                         <button
                             onClick={handleNewSession}
                             className="flex-1 bg-blue-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"

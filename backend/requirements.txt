@@ -1,10 +1,27 @@
 fastapi
 uvicorn
 pandas
-google-generativeai
+numpy
 python-multipart
 python-dotenv
 openpyxl
+xlsxwriter
+pyxlsb
+odfpy
+xlrd
 pydantic
-numpy
 scikit-learn
+requests
+google-genai
+jinja2
+pyarrow
+orjson
+numexpr
+rapidfuzz
+# Optional high-performance dataframe/sql engines for future upgrades:
+polars
+duckdb
+# Optional: for local LLM fallback when Ollama is not used (heavy on laptop)
+# transformers
+# torch
+# accelerate

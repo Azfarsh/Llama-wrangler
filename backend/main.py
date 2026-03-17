@@ -2,9 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
-from app.api.endpoints import router as api_router
+from pathlib import Path
 
-load_dotenv()
+_BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(dotenv_path=_BASE_DIR / ".env", override=True)
+from app.api.endpoints import router as api_router
 
 app = FastAPI(title="AutoDW-Lite API", description="Agentic AI Data Wrangling System")
 
@@ -30,4 +32,4 @@ def read_root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)
