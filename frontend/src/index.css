@@ -2,24 +2,22 @@
 
 :root {
   --sidebar-bg: #ffffff;
-  --main-bg: #f3f4f6;
-  /* Gray-100 */
+  --main-bg: #f8fffe;
   --input-bg: #ffffff;
-  --text-primary: #1f2937;
-  /* Gray-800 */
-  --text-secondary: #4b5563;
-  /* Gray-600 */
+  --text-primary: #111827;
+  --text-secondary: #374151;
   --border-color: #e5e7eb;
-  /* Gray-200 */
-  --hover-bg: #f9fafb;
-  /* Gray-50 */
-  --user-msg-bg: #dbeafe;
-  /* Blue-100 */
+  --hover-bg: #f0fdfa;
+  --user-msg-bg: #ccfbf1;
   --ai-msg-bg: #ffffff;
+  --teal-500: #14b8a6;
+  --teal-600: #0d9488;
+  --teal-700: #0f766e;
 }
 
 body {
-  @apply bg-gray-50 text-gray-900;
+  @apply bg-white text-gray-900 antialiased;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
 }
 
 .marquee-track {
@@ -30,28 +28,146 @@ body {
 }
 
 @keyframes marquee-slide {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* Staggered animations */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+.stagger-6 { animation-delay: 0.6s; }
+
+/* Futuristic glass morphism */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-dark {
+  background: rgba(17, 24, 39, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Animated gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #14b8a6, #0d9488, #5eead4, #14b8a6);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 4s ease infinite;
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Grid pattern background */
+.grid-pattern {
+  background-image:
+    linear-gradient(rgba(20, 184, 166, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(20, 184, 166, 0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* Animated border */
+.animated-border {
+  position: relative;
+  overflow: hidden;
+}
+.animated-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #14b8a6, transparent, #0d9488);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* Shimmer effect */
+.shimmer-bg {
+  background: linear-gradient(
+    110deg,
+    transparent 25%,
+    rgba(20, 184, 166, 0.08) 37%,
+    transparent 63%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.5s linear infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Number counter animation */
+@property --num {
+  syntax: '<integer>';
+  initial-value: 0;
+  inherits: false;
+}
+
+.counter-animate {
+  transition: --num 1.5s ease-out;
+  counter-reset: num var(--num);
+}
+.counter-animate::after {
+  content: counter(num);
 }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
-
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 rounded-full;
+  @apply bg-teal-200 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-teal-300;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400;
+/* Hover card lift effect */
+.card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px -12px rgba(20, 184, 166, 0.2);
+}
+
+/* Typing cursor */
+.typing-cursor::after {
+  content: '|';
+  animation: blink 1s step-end infinite;
+  color: #14b8a6;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Particle dot */
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #14b8a6;
+  border-radius: 50%;
+  opacity: 0.3;
 }
