@@ -1,4 +1,4 @@
-# AutoDW-Lite
+# Axel AI
 
 **An Agentic AI System for Automatic Data Wrangling & Excel Intelligence**
 
@@ -12,7 +12,7 @@ Data scientists spend **70–80% of their time** cleaning and preparing data ins
 
 ## The Solution
 
-AutoDW-Lite is a **multi-agent AI system** that automates the entire data wrangling pipeline through a ChatGPT-style conversational interface. Users simply upload a file and describe their goal — the AI understands, plans, executes, validates, and delivers a clean dataset.
+Axel AI is a **multi-agent AI system** that automates the entire data wrangling pipeline through a ChatGPT-style conversational interface. Users simply upload a file and describe their goal — the AI understands, plans, executes, validates, and delivers a clean dataset.
 
 **Powered by Google Gemini**, the system separates reasoning (LLM) from execution (deterministic Python), ensuring accurate, reproducible, and hallucination-free results.
 
@@ -211,9 +211,9 @@ frontend/
 
 ## Research Inspiration
 
-This project is directly inspired by **AutoDW: Automatic Data Wrangling Leveraging Large Language Models** (ASE 2024).
+This project is directly inspired by **Axel AI: Automatic Data Wrangling Leveraging Large Language Models** (ASE 2024).
 
-| AutoDW Paper | AutoDW-Lite |
+| AutoDW Paper | Axel AI |
 |---|---|
 | End-to-end automation | Fully automated pipeline with auto-wrangling mode |
 | LLM-assisted planning | Gemini-powered multi-agent architecture |
