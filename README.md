@@ -1,252 +1,246 @@
-# Excel AI Agent
+# AutoDW-Lite
 
-A conversational AI agent that understands natural language and performs intelligent operations on Excel sheets. **Ollama-only** (local LLM), with **RAG** for better context understanding.
+**An Agentic AI System for Automatic Data Wrangling & Excel Intelligence**
 
-## 🎯 Project Overview
+Upload any dataset, describe what you need in plain English, and get a clean, transformed, analysis-ready file back — no code, no formulas, no manual effort.
 
-The Excel AI Agent lets you:
-- ✅ **Upload** Excel (.xlsx, .xls) or CSV files
-- ✅ **Chat** in natural language: "Sort by Date descending", "Add column Total = Price * Quantity", "Create summary per region"
-- ✅ **Get** structured plans, validated execution, insights, and downloadable output
+---
 
-**Flow:** Upload → Profile → RAG-index → Understand Intent (Ollama) → Create Plan → Validate → Execute → Insights → Download
+## The Problem
 
-## 🏗️ System Architecture
+Data scientists spend **70–80% of their time** cleaning and preparing data instead of analyzing it. Traditional tools like Excel or Python scripts require technical expertise, repetitive manual work, and constant trial-and-error. Non-technical users are left completely out of the loop.
 
-### Backend (Python/FastAPI)
-- **Dataset Profiler** - Analyzes datasets and extracts metadata
-- **Feature Type Inference (FTI)** - Rule-based column type detection (numerical, categorical, datetime, text, etc.)
-- **Prediction Engineering** - LLM recommends target column and task (classification/regression)
-- **Agent Orchestrator** with multiple agents:
-  - **Intent Understanding Agent** (Ollama/HF) - Understands user goals
-  - **Planning Agent** (Ollama/HF) - Creates step-by-step transformation plans
-  - **Execution Agent** (Python) - Performs deterministic data transformations
-  - **Validation & Insight Agent** (Ollama/HF) - Validates results and generates insights
-- **Code Generator** - Produces executable Python script for the wrangling pipeline (Jinja2)
+## The Solution
 
-### Frontend (React)
-- Modern, responsive UI with ChatGPT-style chat interface
-- Dataset upload and preview
-- Real-time statistics and visualizations
-- Transformation progress tracking
-- Results and insights display
+AutoDW-Lite is a **multi-agent AI system** that automates the entire data wrangling pipeline through a ChatGPT-style conversational interface. Users simply upload a file and describe their goal — the AI understands, plans, executes, validates, and delivers a clean dataset.
 
-## 🚀 Quick Start
+**Powered by Google Gemini**, the system separates reasoning (LLM) from execution (deterministic Python), ensuring accurate, reproducible, and hallucination-free results.
+
+---
+
+## Key Capabilities
+
+| Capability | Description |
+|---|---|
+| **Natural Language Data Wrangling** | Describe transformations in plain English — "clean this for ML", "remove nulls", "normalize numeric columns" |
+| **Multi-Agent Pipeline** | Intent Understanding → Planning → Execution → Validation, each handled by a specialized AI agent |
+| **Excel AI Assistant** | Upload `.xlsx` files and ask the AI to add formulas, create charts, build dashboards, and analyze data directly in the spreadsheet |
+| **Auto-Wrangling Mode** | Fully automatic pipeline — predicts target column, infers feature types, builds and executes a cleaning plan with zero user input |
+| **RAG-Enhanced Context** | Retrieval-Augmented Generation indexes dataset metadata for smarter, context-aware AI responses |
+| **Feature Type Inference** | Rule-based column classification (numerical, categorical, datetime, sentence, URL, etc.) inspired by the AutoDW research paper |
+| **Dashboard Generation** | Automatic visual dashboard sheets with summary statistics, distributions, and charts embedded in the output Excel file |
+| **Code Generation** | Downloadable Python script that reproduces the exact wrangling pipeline for transparency and reproducibility |
+| **Multi-Sheet Excel Support** | Full support for multi-sheet Excel workbooks — read, transform, and write across sheets |
+| **Conversation Memory** | Follow-up prompts build on previous transformations within the same session |
+
+---
+
+## How It Works
+
+```
+Upload Dataset (CSV / Excel)
+        ↓
+Dataset Profiling & RAG Indexing
+        ↓
+User Describes Goal in Natural Language
+        ↓
+Agent 1 → Intent Understanding (Gemini)
+        ↓
+Agent 2 → Transformation Planning (Gemini)
+        ↓
+Agent 3 → Safe Execution (Python/Pandas)
+        ↓
+Agent 4 → Validation & Insight Generation (Gemini)
+        ↓
+Download Clean Dataset + Python Script
+```
+
+> **Core principle: LLM thinks, agent plans, code executes** — no hallucinated data, no unsafe operations.
+
+---
+
+## Data Transformations Supported
+
+- Drop columns and constant columns
+- Handle missing values (drop rows, fill with mean/median/mode)
+- Remove duplicate rows
+- Rename columns
+- Type conversion (int, float, datetime, string)
+- Categorical encoding (Label Encoding)
+- Datetime feature extraction (year, month, day, etc.)
+- Text vectorization (TF-IDF)
+- Numeric normalization (StandardScaler)
+- Custom transformations via LLM-generated Python code (sandboxed execution)
+
+---
+
+## Tech Stack
+
+| Layer | Technologies |
+|---|---|
+| **Backend** | Python, FastAPI, Pandas, NumPy, scikit-learn, Jinja2, openpyxl |
+| **LLM** | Google Gemini API (`gemini-2.5-flash`) |
+| **RAG** | Lightweight in-memory token-overlap retrieval |
+| **Frontend** | React 19, React Router, Tailwind CSS, Recharts, Lucide Icons, Axios |
+| **Build** | Vite 7 |
+
+---
+
+## Quick Start
 
 ### Prerequisites
+
 - Python 3.8+
 - Node.js 16+
-- **Ollama** (lightweight local LLM – runs easily on a laptop). Install from [ollama.com](https://ollama.com), then run:
-  ```bash
-  ollama run llama3.2:3b
-  ```
-  Keep this running in a terminal, or run it once so the model is pulled; the backend will call it when needed.
+- A [Google Gemini API key](https://makersuite.google.com/app/apikey) (free tier works)
 
-### Backend Setup
+### 1. Backend
 
-1. Navigate to backend directory:
 ```bash
 cd backend
-```
-
-2. Create virtual environment (recommended):
-```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
+venv\Scripts\activate        # Windows
+# source venv/bin/activate   # macOS/Linux
 pip install -r requirements.txt
 ```
 
-4. (Optional) Create `.env` in `backend/` to override defaults:
-```bash
-cp .env.example .env
-```
-- `USE_OLLAMA=true` – Use Ollama (default). Set to `false` to use HuggingFace fallback (requires `pip install transformers torch`).
-- `OLLAMA_BASE_URL=http://localhost:11434` – Ollama API URL.
-- `OLLAMA_MODEL=llama3.2:3b` – Model name (e.g. `phi3:mini`, `llama3.2:3b`).
+Create a `.env` file in the `backend/` directory:
 
-5. Run the backend server:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_MODEL=gemini-2.5-flash
+GEMINI_TIMEOUT_SEC=45
+```
+
+Start the server:
+
 ```bash
 python main.py
 ```
 
-The backend will run on `http://localhost:8000`
+Backend runs on `http://localhost:8001`
 
-### Frontend Setup
+### 2. Frontend
 
-1. Navigate to frontend directory:
 ```bash
 cd frontend
-```
-
-2. Install dependencies:
-```bash
 npm install
-```
-
-3. Start development server:
-```bash
 npm run dev
 ```
 
-The frontend will run on `http://localhost:5173`
+Frontend runs on `http://localhost:5173`
 
-## 📁 Project Structure
+### 3. Use It
+
+1. Open `http://localhost:5173` in your browser
+2. Sign up and log in
+3. Go to **Dashboard** → upload a CSV or Excel file
+4. On the **Processing** page, type what you need (e.g. *"Clean this dataset and prepare it for machine learning"*)
+5. Download the processed file and generated Python script from the **Download** page
+
+---
+
+## Project Structure
 
 ```
-.
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   │   └── endpoints.py      # API routes
-│   │   ├── core/
-│   │   │   └── config.py         # Configuration
-│   │   └── services/
-│   │       ├── data_service.py   # Data processing operations
-│   │       └── llm_service.py    # Gemini LLM integration
-│   ├── main.py                   # FastAPI application
-│   ├── requirements.txt          # Python dependencies
-│   └── uploads/                  # Uploaded datasets (created automatically)
-│
-└── frontend/
-    ├── src/
-    │   ├── pages/
-    │   │   ├── Home.jsx          # Landing page
-    │   │   ├── Login.jsx         # Login page
-    │   │   ├── Signup.jsx        # Signup page
-    │   │   ├── Dashboard.jsx     # User dashboard
-    │   │   ├── Processing.jsx    # Core chatbot/data wrangling page
-    │   │   └── Download.jsx      # Results and insights page
-    │   ├── App.jsx               # Main app component with routing
-    │   └── main.jsx              # Entry point
-    ├── package.json
-    └── vite.config.js
+backend/
+├── app/
+│   ├── api/
+│   │   └── endpoints.py           # All API routes (data wrangling + Excel AI)
+│   ├── core/
+│   │   └── config.py              # Settings & environment config
+│   ├── services/
+│   │   ├── data_service.py        # Data loading, profiling, transformations, sandboxed code execution
+│   │   ├── llm_service.py         # Gemini-powered multi-agent LLM service
+│   │   ├── rag_service.py         # In-memory RAG for context-aware responses
+│   │   ├── fti_service.py         # Feature Type Inference (rule-based)
+│   │   ├── code_generator.py      # Jinja2-based Python script generator
+│   │   └── excel_ai_service.py    # Excel AI: formulas, charts, dashboards
+│   └── schemas.py                 # Plan validation schemas
+├── main.py                        # FastAPI entry point
+├── requirements.txt
+└── uploads/                       # Uploaded & processed files (auto-created)
+
+frontend/
+├── src/
+│   ├── components/
+│   │   └── Sidebar.jsx            # Navigation sidebar
+│   ├── pages/
+│   │   ├── Home.jsx               # Landing page
+│   │   ├── Login.jsx              # Login
+│   │   ├── Signup.jsx             # Sign up
+│   │   ├── Dashboard.jsx          # Upload & dataset management
+│   │   ├── Processing.jsx         # Chat interface for data wrangling
+│   │   ├── Download.jsx           # Results, insights & downloads
+│   │   ├── About.jsx              # About the project
+│   │   ├── HowItWorks.jsx         # Step-by-step explanation
+│   │   └── Contact.jsx            # Contact info
+│   ├── App.jsx                    # Routing & protected routes
+│   └── main.jsx                   # Entry point
+├── package.json
+└── vite.config.js
 ```
 
-## 🔧 Features
+---
 
-### Data Transformations Supported
-- Drop columns and constant columns
-- Handle missing values (drop or fill with mean/median/mode)
-- Remove duplicates
-- Rename columns
-- Type conversion (int, float, datetime, string)
-- Categorical encoding (Label Encoding)
-- Datetime feature extraction
-- Text vectorization (TF-IDF)
-- Numeric normalization (StandardScaler)
+## API Endpoints
 
-### Agent Capabilities
-1. **Intent Understanding**: Identifies purpose (ML classification, regression, analytics, etc.)
-2. **Planning**: Creates logical transformation sequences
-3. **Execution**: Performs safe, deterministic operations
-4. **Validation**: Generates insights and validates data quality
+### Data Wrangling
 
-## 📊 Usage Example
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/upload` | Upload CSV/Excel dataset |
+| `POST` | `/api/analyze` | Understand intent & generate transformation plan |
+| `POST` | `/api/execute` | Execute plan with LLM code generation + validated fallback |
+| `POST` | `/api/wrangle` | Fully automatic pipeline (predict target, FTI, plan, execute) |
+| `GET` | `/api/code/{session_id}` | Download generated Python wrangling script |
+| `GET` | `/api/download/{filename}` | Download processed dataset |
+| `GET` | `/api/session/{session_id}/insights` | Get generated insights |
+| `GET` | `/api/session/{session_id}/table` | Paginated table data |
 
-1. **Upload Dataset**: Go to Dashboard and upload a CSV/Excel file.
-2. **Run full pipeline (Auto)**: On the Processing page, click **"Run full pipeline (Auto)"** to:
-   - Predict target column and task (classification/regression) via LLM
-   - Infer feature types (FTI) for each column
-   - Build and execute a cleaning + enrichment plan
-   - Get insights and download the cleaned dataset + generated Python script.
-3. **Or describe intent**: In the chat, type e.g.:
-   - "Clean this dataset and prepare it for machine learning classification"
-   - "Remove null values and normalize numeric columns"
-4. **Get Results**: Download the cleaned dataset and (optionally) the generated Python script from the Download page.
+### Excel AI
 
-## 🔬 Research Inspiration
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/excel/upload` | Upload `.xlsx` file for AI processing |
+| `POST` | `/api/excel/ai` | Send natural language request to modify the spreadsheet |
+| `GET` | `/api/excel/download` | Download the updated Excel file |
+| `GET` | `/api/excel/health` | Check Gemini API configuration status |
 
-This project is directly inspired by:
-- **AutoDW: Automatic Data Wrangling Leveraging Large Language Models** (ASE 2024)
+---
 
-Key enhancements over AutoDW:
-- No code shown to users
-- ChatGPT-style conversational interface
-- Modern React web UI
-- Gemini-powered execution
-- Rich dataset visualizations
+## Research Inspiration
 
-## 🛠️ Technology Stack
+This project is directly inspired by **AutoDW: Automatic Data Wrangling Leveraging Large Language Models** (ASE 2024).
 
-**Backend:**
-- FastAPI (Python web framework)
-- Pandas (Data manipulation)
-- Ollama (local LLM – default) or HuggingFace (optional fallback)
-- scikit-learn (ML preprocessing)
-- NumPy (Numerical operations)
-- Jinja2 (Code generation)
+| AutoDW Paper | AutoDW-Lite |
+|---|---|
+| End-to-end automation | Fully automated pipeline with auto-wrangling mode |
+| LLM-assisted planning | Gemini-powered multi-agent architecture |
+| Feature type inference | Rule-based FTI with 12 feature types |
+| Code generation | Sandboxed code execution + downloadable scripts |
+| Research prototype | Full-stack web app with conversational UI |
 
-**Frontend:**
-- React 19
-- React Router (Routing)
-- Tailwind CSS (Styling)
-- Axios (HTTP client)
-- Vite (Build tool)
+Key enhancements beyond the paper: no code exposed to users, ChatGPT-style chat interface, Excel AI assistant, RAG-enhanced context, dashboard generation, and a modern React frontend.
 
-## 📝 Environment Variables
+---
 
-Create a `.env` file in the `backend` directory:
+## Environment Variables
 
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-```
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `GEMINI_API_KEY` | Yes | — | Google Gemini API key |
+| `GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model to use |
+| `GEMINI_TIMEOUT_SEC` | No | `45` | Request timeout in seconds |
 
-## 🧪 Testing
+---
 
-### Backend API Endpoints
+## License
 
-- `POST /api/upload` - Upload dataset
-- `POST /api/analyze` - Analyze user intent and generate plan
-- `POST /api/execute` - Execute transformation plan
-- `POST /api/wrangle` - **Full AutoDW-style pipeline**: predict target, FTI, build plan, execute, return results
-- `GET /api/code/{session_id}` - Download generated Python wrangling script
-- `GET /api/download/{filename}` - Download processed dataset
-- `GET /api/session/{session_id}/insights` - Get insights for a session
+Academic Prototype — for educational and research purposes.
 
-### Example API Usage
-
-```bash
-# Upload dataset
-curl -X POST http://localhost:8000/api/upload \
-  -F "file=@your_dataset.csv"
-
-# Analyze intent
-curl -X POST http://localhost:8000/api/analyze \
-  -H "Content-Type: application/json" \
-  -d '{"session_id": "xxx", "query": "Clean for ML"}'
-```
-
-## 🎨 UI Pages
-
-1. **Home** - Landing page with features and research info
-2. **Login/Signup** - Authentication (localStorage-based for MVP)
-3. **Dashboard** - Upload datasets and view history
-4. **Processing** - Core chatbot interface with dataset preview
-5. **Download** - Results, insights, and download page
-
-## 📄 License
-
-Academic Prototype - For educational/research purposes
-
-## 🤝 Contributing
-
-This is an academic project inspired by AutoDW research. Contributions welcome!
-
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - AutoDW research paper (ASE 2024)
 - Google Gemini API
 - FastAPI and React communities
-
----
-
-**Note**: This is a prototype/MVP. For production use, consider:
-- Database for session management (instead of in-memory)
-- User authentication with proper backend
-- File size limits and validation
-- Error handling and logging
-- Testing suite
