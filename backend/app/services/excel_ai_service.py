@@ -1,9 +1,12 @@
 import json
+import math
+import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
 from openpyxl import Workbook
 from openpyxl.chart import BarChart, LineChart, PieChart, Reference
+from openpyxl.styles import PatternFill
 from openpyxl.utils.cell import range_boundaries
 from openpyxl.utils import get_column_letter
 
@@ -14,49 +17,64 @@ try:
 except ImportError:  # pragma: no cover
     google_genai = None
 
+try:
+    from xlcalculator import Evaluator, ModelCompiler
+except ImportError:  # pragma: no cover
+    ModelCompiler = None
+    Evaluator = None
 
-EXCEL_AGENT_SYSTEM_PROMPT = """You are an expert Excel AI assistant. You receive structured spreadsheet data and a data summary (columns, row count, sample rows).
 
-Your job: understand the user request and return a STRICT JSON response that modifies, analyzes, or creates dashboards/charts for the spreadsheet.
+EXCEL_AGENT_SYSTEM_PROMPT = """You are Axel AI — an expert spreadsheet assistant. You receive a DATA SUMMARY and Spreadsheet JSON.
 
-RESPONSE FORMAT — return ONLY this JSON, nothing else:
+Your job: understand the user's intent, then either (A) answer only in text, or (B) apply changes to the workbook via the JSON plan so results appear in Excel and in the app preview.
+
+Return ONLY strict JSON in this format (no markdown, no text outside the object):
 {
-  "explanation": "Detailed plain-English explanation of every action taken and insight found",
-  "changes": [
-    {"sheet": "Sheet1", "cell": "A1", "value": "text or number", "formula": "=SUM(B2:B100)"}
-  ],
-  "charts": [
-    {"type": "bar", "title": "Sales by Region", "dataRange": "H1:I6", "sheet": "Sheet1", "position": "K2"}
-  ],
-  "dashboard": {
-    "create": true,
-    "sheetName": "Dashboard",
-    "elements": [
-      {"type": "metric", "label": "Total Records", "valueCell": "H2", "valueFormula": "=COUNTA(A:A)-1"},
-      {"type": "metric", "label": "Unique Areas", "valueCell": "H3", "valueFormula": "=SUMPRODUCT(1/COUNTIF(A2:A100,A2:A100))"},
-      {"type": "chart", "chartRef": 0}
-    ]
-  },
-  "readOnly": false
+  "explanation": "bullet points with leading dash + space on each line",
+  "changes": [],
+  "charts": [],
+  "dashboard": {"create": false},
+  "readOnly": true
 }
 
-RULES:
-1. ALWAYS return STRICT JSON only — no markdown, no text outside the JSON object.
-2. If the user only asks a question (no edits needed): set "readOnly": true, keep changes/charts empty, and put the full answer in "explanation".
-3. NEVER delete data unless explicitly asked.
-4. Prefer Excel formulas (=SUM, =COUNTA, =COUNTIF, =AVERAGE, =IF, =VLOOKUP, etc.) over static values.
-5. Be precise with cell references — use the actual data range from the data summary provided.
+RULE 1 — STRICT JSON ONLY.
 
-DASHBOARD AND CHART RULES (critical):
-6. When asked for a dashboard, you MUST:
-   a. First add summary/aggregation cells to a free area of the source sheet (e.g. column H onwards). Use formulas like =COUNTA, =COUNTIF, =SUMPRODUCT for KPIs.
-   b. For charts: create a small summary table in the source sheet (e.g. H1:I6 with category labels in H and counts in I using =COUNTIF). Then set the chart's dataRange to that summary table range.
-   c. Set dashboard.create=true and reference those summary cells as metric elements.
-   d. Include at least 2 charts (bar + pie or bar + line) and at least 3 KPI metrics.
-7. Chart dataRange MUST reference cells that contain actual data or formulas — never reference empty cells.
-8. For a bar/pie chart showing distribution, first build a frequency table with =COUNTIF, then point the chart at that table.
-9. Dashboard metrics should use valueFormula (the formula to write in the source sheet) and valueCell (where to write it).
-10. Put long, detailed insights in "explanation" — describe what the data shows, patterns found, and what the dashboard visualizes.
+RULE 2 — WHEN TO MODIFY THE WORKBOOK (readOnly=false):
+Set readOnly=false and populate "changes" (and optionally "charts" / "dashboard") when the user wants ANY of:
+- Adding columns, rows, formulas, summaries, pivot-style tables, flags, calculated fields
+- Performing operations: sort/filter results materialized on a sheet, group counts, percentages, duplicates markers, new analysis sheets
+- Creating charts or dashboards they asked for
+- "Do this in the spreadsheet / Excel / file", "apply to my data", "update the sheet", "run these steps"
+
+If the user gives a multi-step numbered list that includes creating columns, summary tables, or formulas — that is a WRITE request: execute it in the workbook AND summarize in "explanation".
+
+RULE 3 — WHEN TO STAY READ-ONLY (readOnly=true):
+Set readOnly=true, empty changes/charts, dashboard.create=false ONLY when the user clearly wants information-only with NO file change, for example:
+- "How many rows?", "What does column X mean?", "Explain this dataset" without asking to add or change anything
+- Quick stats or insights with no request to alter the file
+
+When unsure whether they want the file changed: if they mention adding, creating, calculating, marking, summarizing in the sheet, or "perform operations" — prefer readOnly=false and implement it.
+
+RULE 4 — SAFETY / CELL RULES:
+- Do NOT delete or clear existing data unless the user explicitly says delete/remove/clear.
+- Prefer NOT to overwrite populated data cells. Add new columns starting at the first FREE column from DATA SUMMARY; add new blocks or summary tables on new sheet(s) when the change would crowd or replace core data.
+- Use Excel formulas (=IF, =COUNTIF, =SUM, =AVERAGE, etc.) when the user asks for formulas or derived fields.
+- Each change object: {"sheet":"Sheet1","cell":"A1","formula":"=..."} OR {"sheet":"Sheet1","cell":"A1","value":...}. Use "formula" key for formulas (include leading =).
+- For visual highlighting, you may add "fillColor":"FFF59D" (hex RGB, with or without leading #) on a change object to color that cell.
+
+RULE 5 — CHARTS:
+- If they ask for a chart: add a small summary range with real values or formulas first, then add "charts" with a valid dataRange pointing at that range.
+- If user asks for chart/diagram/visualization, charts[] must be non-empty.
+
+RULE 6 — EXPLANATION:
+- Always use bullet lines starting with "- " (one bullet per line, newline-separated).
+- No markdown bold/asterisks. Never one giant paragraph — one idea per bullet line.
+- Describe what you changed in the workbook and key insights in plain language (not raw formula dumps).
+- Only mention operations that are actually present in changes/charts/dashboard.
+- If user gave numbered tasks, output bullets grouped as Task 1, Task 2, ... (max 1-2 short lines each).
+
+RULE 7 — SCOPE:
+Use only sheets/columns/rows present in the provided data unless creating new sheet names you include in "changes".
 """
 
 
@@ -65,6 +83,80 @@ class ExcelAIService:
         self.client = None
         if settings.GEMINI_API_KEY and google_genai is not None:
             self.client = google_genai.Client(api_key=settings.GEMINI_API_KEY)
+
+    @staticmethod
+    def _native_xl_value(v: Any) -> Any:
+        """Convert xlcalculator / Excel types to JSON-friendly Python values."""
+        if v is None:
+            return ""
+        if isinstance(v, bool):
+            return v
+        if isinstance(v, (int,)):
+            return v
+        if isinstance(v, float):
+            if math.isnan(v) or math.isinf(v):
+                return ""
+            return v
+        if isinstance(v, str):
+            return v
+        try:
+            from xlcalculator.xlfunctions.func_xltypes import BLANK
+            if v is BLANK:
+                return ""
+        except ImportError:
+            pass
+        try:
+            from xlcalculator import xlerrors
+            if isinstance(v, xlerrors.ExcelError):
+                return str(v)
+        except ImportError:
+            pass
+        inner = getattr(v, "value", v)
+        if isinstance(inner, (str, int, float, bool)):
+            if isinstance(inner, float) and (math.isnan(inner) or math.isinf(inner)):
+                return ""
+            return inner
+        return str(v)
+
+    @classmethod
+    def enrich_sheet_json_and_changes_from_file(
+        cls,
+        file_path: str,
+        sheet_json: Dict[str, Dict[str, Dict[str, Any]]],
+        changes_log: Optional[List[Dict[str, Any]]] = None,
+    ) -> Tuple[Dict[str, Dict[str, Dict[str, Any]]], Optional[List[Dict[str, Any]]]]:
+        """Evaluate formulas in a saved workbook and merge computed values into preview JSON and change log."""
+        if not file_path or not os.path.isfile(file_path) or ModelCompiler is None or Evaluator is None:
+            return sheet_json, changes_log
+        try:
+            mc = ModelCompiler()
+            model = mc.read_and_parse_archive(file_path)
+            ev = Evaluator(model)
+            for addr in list(model.formulae.keys()):
+                try:
+                    ev.evaluate(addr)
+                except Exception:
+                    continue
+            for sheet_name, cells in sheet_json.items():
+                for coord, entry in cells.items():
+                    full = f"{sheet_name}!{coord}"
+                    if full not in model.formulae:
+                        # If the preview contains formula text, never show it.
+                        if entry.get("formula"):
+                            entry["value"] = ""
+                        continue
+                    entry["value"] = cls._native_xl_value(model.get_cell_value(full))
+            if changes_log:
+                for ch in changes_log:
+                    after = ch.get("after")
+                    full = f"{ch['sheet']}!{ch['cell']}"
+                    if isinstance(after, str) and after.startswith("="):
+                        ch["after_display"] = cls._native_xl_value(model.get_cell_value(full))
+                    else:
+                        ch["after_display"] = after
+            return sheet_json, changes_log
+        except Exception:
+            return sheet_json, changes_log
 
     @staticmethod
     def workbook_to_sheet_json(
@@ -84,9 +176,13 @@ class ExcelAIService:
                     val = cell.value
                     if val is None:
                         continue
+                    is_formula = isinstance(val, str) and val.startswith("=")
                     entry = {
-                        "value": val if not isinstance(val, bytes) else str(val),
-                        "formula": val if isinstance(val, str) and val.startswith("=") else None,
+                        # Never display raw formula text in the UI preview.
+                        # We keep the formula in `formula` and fill `value` later
+                        # after evaluating the workbook (when possible).
+                        "value": "" if is_formula else (val if not isinstance(val, bytes) else str(val)),
+                        "formula": val if is_formula else None,
                     }
                     out[ws.title][cell.coordinate] = entry
                     written += 1
@@ -170,6 +266,9 @@ class ExcelAIService:
             f"{EXCEL_AGENT_SYSTEM_PROMPT}\n\n"
             f"DATA SUMMARY:\n{data_summary}\n\n"
             f"User request:\n{user_message}\n\n"
+            "If the user wants the workbook modified (new columns, formulas, extra sheets, summary tables, charts), "
+            "you MUST set readOnly=false and include every cell write in the \"changes\" array (and charts/dashboard if requested). "
+            "If you only answer facts about the data with no file change, use readOnly=true and empty changes.\n\n"
             f"Spreadsheet JSON:\n{json.dumps(sheet_json, default=str)[:250000]}"
         )
         response = self.client.models.generate_content(
@@ -194,12 +293,18 @@ class ExcelAIService:
 
     @staticmethod
     def _normalize_response(raw: Dict[str, Any]) -> Dict[str, Any]:
+        changes = raw.get("changes") if isinstance(raw.get("changes"), list) else []
+        charts = raw.get("charts") if isinstance(raw.get("charts"), list) else []
+        dashboard = raw.get("dashboard") if isinstance(raw.get("dashboard"), dict) else {"create": False}
+        read_only = bool(raw.get("readOnly", False))
+        if changes or charts or bool(dashboard.get("create")):
+            read_only = False
         return {
             "explanation": str(raw.get("explanation", "Processed request successfully.")),
-            "changes": raw.get("changes") if isinstance(raw.get("changes"), list) else [],
-            "charts": raw.get("charts") if isinstance(raw.get("charts"), list) else [],
-            "dashboard": raw.get("dashboard") if isinstance(raw.get("dashboard"), dict) else {"create": False},
-            "readOnly": bool(raw.get("readOnly", False)),
+            "changes": changes,
+            "charts": charts,
+            "dashboard": dashboard,
+            "readOnly": read_only,
         }
 
     @staticmethod
@@ -240,11 +345,12 @@ class ExcelAIService:
         self,
         workbook: Workbook,
         ai_plan: Dict[str, Any],
-    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any]]:
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any], List[str]]:
         changes_log: List[Dict[str, Any]] = []
         charts_created: List[Dict[str, Any]] = []
         dashboard_summary: Dict[str, Any] = {"created": False, "sheet": None, "elements": 0}
         dashboard_kpis: List[Dict[str, Any]] = []
+        touched_sheets: set[str] = set()
 
         for change in ai_plan.get("changes", []):
             sheet_name = str(change.get("sheet", "Sheet1"))
@@ -252,22 +358,33 @@ class ExcelAIService:
             if not cell_ref:
                 continue
             ws = self._ensure_sheet(workbook, sheet_name)
+            touched_sheets.add(sheet_name)
             before = ws[cell_ref].value
             if change.get("formula"):
                 ws[cell_ref].value = str(change["formula"])
             elif "value" in change:
                 ws[cell_ref].value = change.get("value")
+            fill_color = str(change.get("fillColor", "")).strip().lstrip("#")
+            if fill_color:
+                if len(fill_color) == 6:
+                    fill_color = f"FF{fill_color.upper()}"
+                elif len(fill_color) == 8:
+                    fill_color = fill_color.upper()
+                if len(fill_color) == 8:
+                    ws[cell_ref].fill = PatternFill(fill_type="solid", start_color=fill_color, end_color=fill_color)
             after = ws[cell_ref].value
             changes_log.append({
                 "sheet": sheet_name,
                 "cell": cell_ref,
                 "before": before,
                 "after": after,
+                "fillColor": str(change.get("fillColor", "")).strip() or None,
             })
 
         for idx, chart_cfg in enumerate(ai_plan.get("charts", [])):
             sheet_name = str(chart_cfg.get("sheet", "Sheet1"))
             ws = self._ensure_sheet(workbook, sheet_name)
+            touched_sheets.add(sheet_name)
             chart_obj = self._build_chart(chart_cfg, ws)
             if chart_obj is None:
                 continue
@@ -285,6 +402,7 @@ class ExcelAIService:
         if dashboard.get("create"):
             dash_name = str(dashboard.get("sheetName", "Dashboard")).strip() or "Dashboard"
             dash_ws = self._ensure_sheet(workbook, dash_name)
+            touched_sheets.add(dash_name)
             dash_ws["A1"] = "AI Dashboard"
             dash_ws["A2"] = "Generated summary metrics and chart references"
             row_idx = 4
@@ -332,7 +450,7 @@ class ExcelAIService:
                 "kpis": dashboard_kpis,
             }
 
-        return changes_log, charts_created, dashboard_summary
+        return changes_log, charts_created, dashboard_summary, sorted(touched_sheets)
 
     @staticmethod
     def extract_sheet_preview(
@@ -364,7 +482,8 @@ class ExcelAIService:
             for c in range(1, max_col + 1):
                 val = ws.cell(row=r, column=c).value
                 if isinstance(val, str) and val.startswith("="):
-                    val = f"[formula]"
+                    # Never display raw formula text in any previews.
+                    val = ""
                 row_data[headers[c - 1]] = val if val is not None else ""
                 if val is not None and val != "":
                     non_empty = True
@@ -391,10 +510,11 @@ class ExcelAIService:
                 "dashboard_summary": {"created": False, "sheet": None, "elements": 0},
             }
 
-        change_tracking, applied_charts, dashboard_summary = self.apply_plan_to_workbook(workbook, plan)
+        change_tracking, applied_charts, dashboard_summary, changed_sheets = self.apply_plan_to_workbook(workbook, plan)
         return {
             **plan,
             "change_tracking": change_tracking,
             "applied_charts": applied_charts,
             "dashboard_summary": dashboard_summary,
+            "changed_sheets": changed_sheets,
         }

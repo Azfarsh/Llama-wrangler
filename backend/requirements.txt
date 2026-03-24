@@ -5,6 +5,7 @@ numpy
 python-multipart
 python-dotenv
 openpyxl
+xlcalculator
 xlsxwriter
 pyxlsb
 odfpy

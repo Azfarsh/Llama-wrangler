@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import AxelLogo from '../assets/Axellogo.png';
+import { useTheme } from '../hooks/useTheme';
+import ThemeToggle from '../components/ThemeToggle';
 
 function useInView(threshold = 0.15) {
     const ref = useRef(null);
@@ -8,10 +10,7 @@ function useInView(threshold = 0.15) {
     useEffect(() => {
         const el = ref.current;
         if (!el) return;
-        const obs = new IntersectionObserver(
-            ([entry]) => { if (entry.isIntersecting) setVisible(true); },
-            { threshold }
-        );
+        const obs = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setVisible(true); }, { threshold });
         obs.observe(el);
         return () => obs.disconnect();
     }, [threshold]);
@@ -20,132 +19,184 @@ function useInView(threshold = 0.15) {
 
 export default function About() {
     const [heroRef, heroVisible] = useInView(0.1);
+    const [archRef, archVisible] = useInView(0.1);
     const [featRef, featVisible] = useInView(0.1);
+    const [techRef, techVisible] = useInView(0.1);
+    const [mobileMenu, setMobileMenu] = useState(false);
+    const { dark, toggle: toggleTheme } = useTheme();
+
+    const agents = [
+        { name: 'Intent Understanding', desc: 'Analyzes your natural language query to understand what you need.', icon: '🧠', color: 'from-blue-500/20 to-blue-600/5' },
+        { name: 'Planning Agent', desc: 'Creates a step-by-step transformation and analysis plan.', icon: '📋', color: 'from-purple-500/20 to-purple-600/5' },
+        { name: 'Execution Agent', desc: 'Performs safe, deterministic data operations on your sheet.', icon: '⚡', color: 'from-teal-500/20 to-teal-600/5' },
+        { name: 'Validation Agent', desc: 'Validates results and generates insights from processed data.', icon: '✅', color: 'from-green-500/20 to-green-600/5' },
+    ];
+
+    const features = [
+        { text: 'Natural language interface - no coding required', icon: '💬' },
+        { text: 'Automatic dataset profiling and understanding', icon: '📊' },
+        { text: 'Comprehensive data transformations', icon: '🔄' },
+        { text: 'ML-ready output formats', icon: '🤖' },
+        { text: 'Rich visualizations and insights', icon: '📈' },
+        { text: 'Safe, deterministic execution', icon: '🛡️' },
+    ];
 
     return (
-        <div className="min-h-screen bg-white">
-            <nav className="glass border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+        <div className="min-h-screen" style={{ background: 'var(--page-bg)' }}>
+            <nav className="glass px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 z-50">
                 <Link to="/" className="flex items-center gap-3">
                     <img src={AxelLogo} alt="Axel AI" className="h-9 w-9 rounded-xl object-contain" />
-                    <span className="text-xl font-bold text-gray-900">Axel <span className="text-teal-600">AI</span></span>
+                    <span className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Axel <span style={{ color: 'var(--teal-accent)' }}>AI</span></span>
                 </Link>
-                <div className="flex items-center gap-4">
-                    <Link to="/how-it-works" className="text-gray-600 hover:text-teal-600 transition-colors text-sm font-medium">How It Works</Link>
-                    <Link to="/" className="text-gray-600 hover:text-teal-600 transition-colors text-sm font-medium">Home</Link>
+                <div className="hidden sm:flex items-center gap-4">
+                    <Link to="/how-it-works" className="text-sm font-medium transition-colors hover:opacity-80" style={{ color: 'var(--text-secondary)' }}>How It Works</Link>
+                    <Link to="/" className="text-sm font-medium transition-colors hover:opacity-80" style={{ color: 'var(--text-secondary)' }}>Home</Link>
+                    <ThemeToggle dark={dark} toggle={toggleTheme} />
+                </div>
+                <div className="sm:hidden flex items-center gap-2">
+                    <ThemeToggle dark={dark} toggle={toggleTheme} />
+                    <button className="p-2 hover:text-teal-400" style={{ color: 'var(--text-secondary)' }} onClick={() => setMobileMenu(!mobileMenu)} aria-label="Toggle menu">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            {mobileMenu ? <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /> : <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />}
+                        </svg>
+                    </button>
                 </div>
             </nav>
+            {mobileMenu && (
+                <div className="sm:hidden glass-dark px-4 py-3 space-y-2 z-40 relative" style={{ borderBottom: '1px solid var(--border-color)' }}>
+                    <Link to="/how-it-works" onClick={() => setMobileMenu(false)} className="block text-sm font-medium py-1 hover:text-teal-400" style={{ color: 'var(--text-secondary)' }}>How It Works</Link>
+                    <Link to="/" onClick={() => setMobileMenu(false)} className="block text-sm font-medium py-1 hover:text-teal-400" style={{ color: 'var(--text-secondary)' }}>Home</Link>
+                </div>
+            )}
 
-            <div className="max-w-4xl mx-auto px-4 py-16">
-                <div ref={heroRef} className={`mb-12 transition-all duration-700 ${heroVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-                    <h1 className="text-4xl font-bold text-gray-900 mb-6">About Axel AI</h1>
+            <div className="max-w-5xl mx-auto px-4 py-12 sm:py-16">
+                {/* Hero */}
+                <div ref={heroRef} className={`text-center mb-16 transition-all duration-700 ${heroVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-sm font-medium mb-6" style={{ background: 'var(--teal-soft-bg)', borderColor: 'var(--teal-soft-border)', color: 'var(--teal-accent)' }}>
+                        <span className="w-2 h-2 bg-teal-400 rounded-full animate-pulse" />
+                        About the Platform
+                    </div>
+                    <h1 className="text-4xl sm:text-5xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
+                        Built for the Future of <span className="gradient-text">Data Intelligence</span>
+                    </h1>
+                    <p className="text-base sm:text-lg max-w-3xl mx-auto leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                        Axel AI is an agentic, LLM-powered data wrangling system that democratizes data preparation.
+                        It eliminates the need for manual coding and complex spreadsheet operations.
+                    </p>
+                </div>
 
-                    <div className="prose max-w-none">
-                        <p className="text-lg text-gray-600 mb-6 leading-relaxed">
-                            Axel AI is an agentic, LLM-powered data wrangling system designed to democratize
-                            data preparation. Built for data scientists, analysts, and anyone who works with data,
-                            it eliminates the need for manual coding and complex spreadsheet operations.
+                {/* Problem / Solution */}
+                <div className={`grid sm:grid-cols-2 gap-6 mb-16 transition-all duration-700 ${heroVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`} style={{ transitionDelay: '200ms' }}>
+                    <div className="rounded-2xl p-6" style={{ background: 'var(--panel-bg)', border: '1px solid var(--border-color)' }}>
+                        <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-2xl mb-4">🔴</div>
+                        <h3 className="text-xl font-bold mb-3" style={{ color: 'var(--text-primary)' }}>The Problem</h3>
+                        <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                            Data professionals spend 70-80% of their time cleaning and preparing data. Traditional tools require technical expertise and are time-consuming.
                         </p>
-
-                        <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-6 mb-8">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-3">The Problem We Solve</h2>
-                            <p className="text-gray-600 leading-relaxed">
-                                Data professionals spend 70-80% of their time cleaning and preparing data. Traditional
-                                tools require technical expertise, are time-consuming, and error-prone. Axel AI
-                                changes this by using AI agents to understand your intent and automatically transform your data.
-                            </p>
-                        </div>
-
-                        <h2 className="text-2xl font-bold text-gray-900 mb-4">How It Works</h2>
-                        <p className="text-gray-600 mb-4 leading-relaxed">
-                            Our system uses a multi-agent architecture powered by Google Gemini:
+                    </div>
+                    <div className="rounded-2xl p-6" style={{ background: 'var(--panel-bg)', border: '1px solid var(--border-color)' }}>
+                        <div className="w-12 h-12 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-2xl mb-4">🟢</div>
+                        <h3 className="text-xl font-bold mb-3" style={{ color: 'var(--text-primary)' }}>Our Solution</h3>
+                        <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                            Axel AI uses intelligent agents to understand your intent and automatically transform your data with natural language instructions.
                         </p>
-                        <div className="grid md:grid-cols-2 gap-3 mb-8">
-                            {[
-                                { name: 'Intent Understanding Agent', desc: 'Analyzes your natural language query' },
-                                { name: 'Planning Agent', desc: 'Creates a step-by-step transformation plan' },
-                                { name: 'Execution Agent', desc: 'Performs safe, deterministic data operations' },
-                                { name: 'Validation Agent', desc: 'Validates results and generates insights' },
-                            ].map((agent) => (
-                                <div key={agent.name} className="p-4 rounded-xl border border-gray-100 bg-white shadow-sm card-hover">
-                                    <h4 className="font-semibold text-gray-900 mb-1">{agent.name}</h4>
-                                    <p className="text-sm text-gray-500">{agent.desc}</p>
-                                </div>
-                            ))}
-                        </div>
-
-                        <div className="rounded-2xl border border-teal-100 bg-teal-50/50 p-6 mb-8">
-                            <h2 className="text-xl font-bold text-gray-900 mb-2">Research Foundation</h2>
-                            <p className="text-gray-600 mb-3">This project is inspired by the research paper:</p>
-                            <div className="bg-white rounded-xl p-4 border border-teal-100">
-                                <p className="font-semibold text-gray-900">AutoDW: Automatic Data Wrangling Leveraging Large Language Models</p>
-                                <p className="text-teal-600 text-sm font-medium">ASE 2024</p>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
-                <div ref={featRef}>
-                    <h2 className={`text-2xl font-bold text-gray-900 mb-4 transition-all duration-700 ${featVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>Key Features</h2>
-                    <div className="grid md:grid-cols-2 gap-3 mb-8">
-                        {[
-                            'Natural language interface - no coding required',
-                            'Automatic dataset profiling and understanding',
-                            'Comprehensive data transformations',
-                            'ML-ready output formats',
-                            'Rich visualizations and insights',
-                            'Safe, deterministic execution',
-                        ].map((feat, i) => (
+                {/* Architecture diagram */}
+                <div ref={archRef} className={`mb-16 transition-all duration-700 ${archVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-center mb-3" style={{ color: 'var(--text-primary)' }}>Multi-Agent Architecture</h2>
+                    <p className="text-center mb-10" style={{ color: 'var(--text-muted)' }}>Powered by Google Gemini 2.5 Flash</p>
+
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {agents.map((agent, i) => (
                             <div
-                                key={feat}
-                                className={`flex items-center gap-3 p-3 rounded-xl border border-gray-100 bg-white shadow-sm transition-all duration-500 ${featVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
-                                style={{ transitionDelay: `${i * 80}ms` }}
+                                key={agent.name}
+                                className={`rounded-2xl p-5 card-hover transition-all duration-700 ${archVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+                                style={{ background: 'var(--panel-bg)', border: '1px solid var(--border-color)', transitionDelay: `${i * 100}ms` }}
                             >
-                                <span className="w-2 h-2 rounded-full bg-teal-500 shrink-0" />
-                                <span className="text-sm text-gray-700">{feat}</span>
+                                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${agent.color} flex items-center justify-center text-2xl mb-4 border border-white/5`}>
+                                    {agent.icon}
+                                </div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 font-medium border border-teal-500/20">{i + 1}</span>
+                                    <h4 className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{agent.name}</h4>
+                                </div>
+                                <p className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>{agent.desc}</p>
+                                {i < 3 && <div className="hidden lg:block absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 text-teal-500/30 text-xl">&rarr;</div>}
                             </div>
                         ))}
                     </div>
 
-                    <h2 className="text-2xl font-bold text-gray-900 mb-4">Technology Stack</h2>
-                    <div className="grid md:grid-cols-2 gap-4 mb-8">
-                        <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-5">
-                            <h3 className="font-semibold text-gray-900 mb-3">Backend</h3>
-                            <ul className="text-sm text-gray-600 space-y-1.5">
-                                {['FastAPI (Python)', 'Pandas', 'Google Gemini API', 'scikit-learn'].map((t) => (
-                                    <li key={t} className="flex items-center gap-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />{t}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                        <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-5">
-                            <h3 className="font-semibold text-gray-900 mb-3">Frontend</h3>
-                            <ul className="text-sm text-gray-600 space-y-1.5">
-                                {['React 19', 'Tailwind CSS', 'React Router', 'Vite'].map((t) => (
-                                    <li key={t} className="flex items-center gap-2">
-                                        <span className="w-1.5 h-1.5 rounded-full bg-teal-400" />{t}
-                                    </li>
-                                ))}
-                            </ul>
+                    <div className="mt-6 text-center">
+                        <div className="inline-flex items-center gap-3 px-5 py-3 rounded-xl" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)' }}>
+                            <span className="text-lg">📄</span>
+                            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Based on:</span>
+                            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>AutoDW: Automatic Data Wrangling (ASE 2024)</span>
                         </div>
                     </div>
+                </div>
 
-                    <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-5 mb-8">
-                        <p className="text-gray-500 text-sm">
-                            <strong className="text-gray-700">Note:</strong> This is an academic prototype. For production use, additional
-                            features like proper authentication, database storage, and comprehensive error handling
-                            would be recommended.
-                        </p>
+                {/* Features */}
+                <div ref={featRef} className={`mb-16 transition-all duration-700 ${featVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-center mb-10" style={{ color: 'var(--text-primary)' }}>Key Features</h2>
+                    <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {features.map((feat, i) => (
+                            <div
+                                key={feat.text}
+                                className={`flex items-center gap-4 p-4 rounded-xl card-hover transition-all duration-500 ${featVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+                                style={{ background: 'var(--panel-bg)', border: '1px solid var(--border-color)', transitionDelay: `${i * 80}ms` }}
+                            >
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)' }}>{feat.icon}</div>
+                                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{feat.text}</span>
+                            </div>
+                        ))}
                     </div>
+                </div>
 
-                    <div className="flex gap-4">
-                        <Link to="/signup" className="px-6 py-3 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-700 transition-all shadow-lg shadow-teal-500/20">
-                            Get Started
-                        </Link>
-                        <Link to="/" className="px-6 py-3 bg-gray-50 text-gray-700 rounded-xl font-semibold hover:bg-gray-100 transition-all border border-gray-200">
-                            Back to Home
-                        </Link>
+                {/* Tech Stack */}
+                <div ref={techRef} className={`mb-12 transition-all duration-700 ${techVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-center mb-10" style={{ color: 'var(--text-primary)' }}>Technology Stack</h2>
+                    <div className="grid sm:grid-cols-2 gap-6">
+                        <div className="rounded-2xl p-6" style={{ background: 'var(--panel-bg)', border: '1px solid var(--border-color)' }}>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-lg">⚙️</div>
+                                <h3 className="font-bold" style={{ color: 'var(--text-primary)' }}>Backend</h3>
+                            </div>
+                            <div className="space-y-2">
+                                {['FastAPI (Python)', 'Pandas & NumPy', 'Google Gemini API', 'scikit-learn', 'openpyxl'].map((t) => (
+                                    <div key={t} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--card-bg)' }}>
+                                        <span className="w-2 h-2 rounded-full bg-teal-400" />
+                                        <span style={{ color: 'var(--text-secondary)' }}>{t}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="rounded-2xl p-6" style={{ background: 'var(--panel-bg)', border: '1px solid var(--border-color)' }}>
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-lg">🎨</div>
+                                <h3 className="font-bold" style={{ color: 'var(--text-primary)' }}>Frontend</h3>
+                            </div>
+                            <div className="space-y-2">
+                                {['React 19', 'Tailwind CSS v4', 'React Router v7', 'Vite 7', 'Axios'].map((t) => (
+                                    <div key={t} className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm" style={{ background: 'var(--card-bg)' }}>
+                                        <span className="w-2 h-2 rounded-full bg-teal-400" />
+                                        <span style={{ color: 'var(--text-secondary)' }}>{t}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
+                </div>
+
+                {/* CTA */}
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <Link to="/signup" className="px-8 py-3.5 text-white rounded-xl font-semibold hover:opacity-90 transition-all text-center text-sm" style={{ background: 'linear-gradient(135deg, #0d9488, #14b8a6)', boxShadow: '0 8px 30px rgba(13,148,136,0.25)' }}>
+                        Get Started
+                    </Link>
+                    <Link to="/" className="px-8 py-3.5 rounded-xl font-semibold transition-all text-center text-sm" style={{ background: 'var(--card-bg)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+                        Back to Home
+                    </Link>
                 </div>
             </div>
         </div>

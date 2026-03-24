@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import AxelLogo from '../assets/Axellogo.png';
+import { useTheme } from '../hooks/useTheme';
+import ThemeToggle from '../components/ThemeToggle';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const API_ORIGIN = import.meta.env.VITE_API_ORIGIN || 'http://localhost:8000';
@@ -20,21 +22,22 @@ function AnimatedStat({ label, value, color = 'teal', delay = 0 }) {
         return () => clearTimeout(t);
     }, [delay]);
     const colorMap = {
-        teal: 'text-teal-600 bg-teal-50 border-teal-100',
-        purple: 'text-purple-600 bg-purple-50 border-purple-100',
-        amber: 'text-amber-600 bg-amber-50 border-amber-100',
-        rose: 'text-rose-600 bg-rose-50 border-rose-100',
+        teal: 'text-teal-400 bg-teal-900/30 border-teal-700/40',
+        purple: 'text-purple-400 bg-purple-900/30 border-purple-700/40',
+        amber: 'text-amber-400 bg-amber-900/30 border-amber-700/40',
+        rose: 'text-rose-400 bg-rose-900/30 border-rose-700/40',
     };
     return (
         <div className={`p-3 rounded-xl border transition-all duration-500 ${colorMap[color]} ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}>
             <div className="text-2xl font-bold">{value}</div>
-            <div className="text-xs text-gray-600">{label}</div>
+            <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>{label}</div>
         </div>
     );
 }
 
 export default function Processing() {
     const navigate = useNavigate();
+    const { dark, toggle: toggleTheme } = useTheme();
     const [prompt, setPrompt] = useState('');
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -42,6 +45,8 @@ export default function Processing() {
     const [profile, setProfile] = useState(null);
     const [previewData, setPreviewData] = useState([]);
     const [downloadUrl, setDownloadUrl] = useState(localStorage.getItem('downloadUrl') || '');
+    const [showSidebar, setShowSidebar] = useState(false);
+    const [showPreview, setShowPreview] = useState(false);
     const messagesEndRef = useRef(null);
     const uploadInputRef = useRef(null);
     const [sessionId, setSessionId] = useState(localStorage.getItem('sessionId'));
@@ -182,66 +187,91 @@ export default function Processing() {
     };
 
     return (
-        <div className="min-h-screen bg-white flex flex-col">
-            <header className="glass border-b border-gray-100 px-6 py-3 flex justify-between items-center sticky top-0 z-20">
-                <div className="flex items-center gap-3">
-                    <img src={AxelLogo} alt="Axel AI" className="h-8 w-8 rounded-lg object-contain" />
-                    <div>
-                        <h1 className="text-xl font-bold text-gray-900">Axel <span className="text-teal-600">AI</span> Agent</h1>
-                        <p className="text-xs text-gray-500">Dataset: {filename}</p>
+        <div className="min-h-screen flex flex-col" style={{ background: 'var(--page-bg)' }}>
+            <header className="glass px-4 sm:px-6 py-3 flex justify-between items-center sticky top-0 z-20">
+                <div className="flex items-center gap-3 min-w-0">
+                    <img src={AxelLogo} alt="Axel AI" className="h-8 w-8 rounded-lg object-contain shrink-0" />
+                    <div className="min-w-0">
+                        <h1 className="text-lg sm:text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Axel <span style={{ color: 'var(--teal-accent)' }}>AI</span> Agent</h1>
+                        <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>Dataset: {filename}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                    {/* Mobile toggle buttons */}
+                    <button
+                        type="button"
+                        onClick={() => { setShowSidebar(!showSidebar); setShowPreview(false); }}
+                        className="lg:hidden px-2 py-1.5 rounded-lg border text-xs transition-colors"
+                        style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+                    >
+                        Stats
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => { setShowPreview(!showPreview); setShowSidebar(false); }}
+                        className="lg:hidden px-2 py-1.5 rounded-lg border text-xs transition-colors"
+                        style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+                    >
+                        Preview
+                    </button>
                     <input ref={uploadInputRef} type="file" className="hidden" accept=".csv,.xlsx,.xls" onChange={handleReplaceUpload} />
                     <button
                         type="button"
                         onClick={() => uploadInputRef.current?.click()}
                         disabled={loading || uploadingReplacement}
-                        className="w-9 h-9 rounded-lg border border-teal-200 text-teal-600 text-lg font-bold hover:bg-teal-50 disabled:opacity-50 transition-colors"
+                        className="w-9 h-9 rounded-lg border text-lg font-bold disabled:opacity-50 transition-colors flex items-center justify-center hover:opacity-80"
+                        style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
                     >
-                        +
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
                     </button>
+                    <ThemeToggle dark={dark} toggle={toggleTheme} />
                     <button
                         onClick={() => navigate('/dashboard')}
-                        className="px-4 py-2 text-gray-500 hover:text-gray-900 border border-gray-200 rounded-lg hover:bg-gray-50 text-sm transition-colors"
+                        className="px-3 py-2 hover:text-teal-400 rounded-lg text-sm transition-colors hidden sm:block"
+                        style={{ color: 'var(--text-muted)', border: '1px solid var(--border-color)' }}
                     >
-                        Back to Dashboard
+                        Dashboard
                     </button>
                 </div>
             </header>
 
-            <div className="flex-1 flex overflow-hidden">
+            <div className="flex-1 flex overflow-hidden relative">
                 {/* Sidebar - stats */}
-                <div className="w-80 bg-gray-50/50 border-r border-gray-100 overflow-y-auto p-4">
-                    <h2 className="text-lg font-semibold mb-4 text-gray-900">Dataset Overview</h2>
+                <div className={`${showSidebar ? 'block absolute inset-0 z-10' : 'hidden'} lg:block lg:relative lg:w-72 xl:w-80 border-r overflow-y-auto p-4`} style={{ background: 'var(--panel-bg)', borderColor: 'var(--border-color)' }}>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Dataset Overview</h2>
+                        <button onClick={() => setShowSidebar(false)} className="lg:hidden text-sm" style={{ color: 'var(--text-muted)' }}>Close</button>
+                    </div>
                     {profile && (
                         <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-2">
                                 <AnimatedStat label="Total Rows" value={profile.total_rows?.toLocaleString() || 'N/A'} color="teal" delay={0} />
                                 <AnimatedStat label="Total Columns" value={profile.total_columns || 'N/A'} color="teal" delay={100} />
                                 <AnimatedStat label="Numeric" value={profile.numeric_columns?.length || 0} color="purple" delay={200} />
                                 <AnimatedStat label="Text" value={profile.text_columns?.length || 0} color="amber" delay={300} />
                             </div>
-                            <div className="p-3 rounded-xl bg-amber-50 border border-amber-100">
-                                <div className="text-sm font-semibold text-gray-700 mb-1">Missing Values</div>
-                                <div className="text-lg font-bold text-amber-600">
+                            <div className="p-3 rounded-xl bg-amber-900/30 border border-amber-700/40">
+                                <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Missing Values</div>
+                                <div className="text-lg font-bold text-amber-400">
                                     {Object.values(profile.missing_values || {}).reduce((a, b) => a + b, 0).toLocaleString()}
                                 </div>
                             </div>
                             {profile.duplicate_rows > 0 && (
-                                <div className="p-3 rounded-xl bg-rose-50 border border-rose-100">
-                                    <div className="text-sm font-semibold text-gray-700 mb-1">Duplicate Rows</div>
-                                    <div className="text-lg font-bold text-rose-600">{profile.duplicate_rows}</div>
+                                <div className="p-3 rounded-xl bg-rose-900/30 border border-rose-700/40">
+                                    <div className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>Duplicate Rows</div>
+                                    <div className="text-lg font-bold text-rose-400">{profile.duplicate_rows}</div>
                                 </div>
                             )}
                             <div>
-                                <div className="text-sm font-semibold text-gray-700 mb-2">Columns</div>
+                                <div className="text-sm font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>Columns</div>
                                 <div className="space-y-1 max-h-40 overflow-y-auto">
                                     {profile.columns?.slice(0, 10).map((col, i) => (
-                                        <div key={i} className="text-xs text-gray-600 bg-white px-2 py-1 rounded border border-gray-100">{col}</div>
+                                        <div key={i} className="text-xs px-2 py-1 rounded border" style={{ background: 'var(--card-bg)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>{col}</div>
                                     ))}
                                     {profile.columns?.length > 10 && (
-                                        <div className="text-xs text-gray-400">+{profile.columns.length - 10} more</div>
+                                        <div className="text-xs" style={{ color: 'var(--text-muted)' }}>+{profile.columns.length - 10} more</div>
                                     )}
                                 </div>
                             </div>
@@ -250,19 +280,19 @@ export default function Processing() {
                 </div>
 
                 {/* Chat area */}
-                <div className="flex-1 flex flex-col">
-                    <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                <div className="flex-1 flex flex-col min-w-0">
+                    <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
                         {messages.map((m, i) => (
                             <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-3xl rounded-xl p-4 ${
                                     m.role === 'user'
                                         ? 'bg-teal-600 text-white'
                                         : m.isError
-                                        ? 'bg-red-50 text-red-800 border border-red-200'
-                                        : 'bg-white text-gray-800 border border-gray-100 shadow-sm'
-                                }`}>
+                                        ? 'bg-red-900/30 text-red-300 border border-red-700/40'
+                                        : 'border'
+                                }`} style={m.role !== 'user' && !m.isError ? { background: 'var(--card-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' } : undefined}>
                                     <div className="whitespace-pre-wrap text-sm leading-relaxed">{m.text}</div>
-                                    <div className={`text-xs mt-2 ${m.role === 'user' ? 'text-teal-200' : 'text-gray-400'}`}>
+                                    <div className={`text-xs mt-2 ${m.role === 'user' ? 'text-teal-100' : ''}`} style={m.role !== 'user' ? { color: 'var(--text-muted)' } : undefined}>
                                         {m.timestamp?.toLocaleTimeString()}
                                     </div>
                                 </div>
@@ -270,31 +300,32 @@ export default function Processing() {
                         ))}
                         {loading && (
                             <div className="flex justify-start">
-                                <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                                <div className="border rounded-xl p-4" style={{ background: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
                                     <div className="flex items-center space-x-2">
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-600" />
-                                        <span className="text-sm text-gray-500">Agent is working...</span>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-teal-500" />
+                                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Agent is working...</span>
                                     </div>
                                 </div>
                             </div>
                         )}
                         <div ref={messagesEndRef} />
                     </div>
-                    <div className="border-t border-gray-100 bg-white p-4">
+                    <div className="border-t p-3 sm:p-4" style={{ background: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
                         <div className="flex flex-col gap-3 max-w-4xl mx-auto">
                             <div className="flex gap-2 flex-wrap">
                                 {downloadUrl && (
-                                    <button type="button" onClick={() => window.open(buildUrl(downloadUrl), '_blank')} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 transition-colors">
+                                    <button type="button" onClick={() => window.open(buildUrl(downloadUrl), '_blank')} className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-xs font-medium hover:bg-teal-700 transition-colors">
                                         Download File
                                     </button>
                                 )}
-                                <span className="text-xs text-gray-400 self-center">or describe what you want below</span>
+                                <span className="text-xs self-center" style={{ color: 'var(--text-muted)' }}>or describe what you want below</span>
                             </div>
-                            <div className="flex gap-3">
+                            <div className="flex gap-2">
                                 <input
                                     type="text"
-                                    className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-teal-500 transition-colors text-sm"
-                                    placeholder="e.g. Sort by Date descending, Show 5 unique rows by Area..."
+                                    className="flex-1 px-3 py-2.5 border rounded-xl focus:outline-none focus:border-teal-500 transition-colors text-sm theme-input"
+                                    style={{ background: 'var(--input-bg)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                                    placeholder="e.g. Sort by Date descending..."
                                     value={prompt}
                                     onChange={(e) => setPrompt(e.target.value)}
                                     onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
@@ -303,34 +334,37 @@ export default function Processing() {
                                 <button
                                     onClick={handleSend}
                                     disabled={loading || !prompt.trim()}
-                                    className="px-6 py-3 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+                                    className="px-5 py-2.5 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm shrink-0"
                                 >
                                     Send
                                 </button>
                             </div>
                         </div>
-                        <p className="text-xs text-gray-400 text-center mt-2">Powered by Gemini AI and RAG context.</p>
+                        <p className="text-xs text-center mt-2" style={{ color: 'var(--text-muted)' }}>Powered by Gemini AI and RAG context.</p>
                     </div>
                 </div>
 
                 {/* Right sidebar - preview */}
-                <div className="w-96 bg-gray-50/50 border-l border-gray-100 overflow-y-auto p-4">
-                    <h2 className="text-lg font-semibold mb-4 text-gray-900">Data Preview</h2>
+                <div className={`${showPreview ? 'block absolute inset-0 z-10' : 'hidden'} lg:block lg:relative lg:w-80 xl:w-96 border-l overflow-y-auto p-4`} style={{ background: 'var(--panel-bg)', borderColor: 'var(--border-color)' }}>
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Data Preview</h2>
+                        <button onClick={() => setShowPreview(false)} className="lg:hidden text-sm" style={{ color: 'var(--text-muted)' }}>Close</button>
+                    </div>
                     {previewData.length > 0 ? (
                         <div className="overflow-x-auto">
-                            <table className="min-w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
-                                <thead className="bg-teal-50">
+                            <table className="min-w-full text-xs border rounded-lg overflow-hidden" style={{ borderColor: 'var(--border-color)' }}>
+                                <thead style={{ background: 'var(--card-bg)' }}>
                                     <tr>
                                         {Object.keys(previewData[0] || {}).map((key, i) => (
-                                            <th key={i} className="px-2 py-2 text-left font-semibold text-gray-700 border-b">{key}</th>
+                                            <th key={i} className="px-2 py-2 text-left font-semibold border-b whitespace-nowrap" style={{ color: 'var(--teal-accent)', borderColor: 'var(--border-color)' }}>{key}</th>
                                         ))}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {previewData.slice(0, 10).map((row, i) => (
-                                        <tr key={i} className="border-b hover:bg-teal-50/30 transition-colors">
+                                        <tr key={i} className="border-b transition-colors hover:bg-[var(--hover-bg)]" style={{ borderColor: 'var(--table-row-border)' }}>
                                             {Object.values(row).map((val, j) => (
-                                                <td key={j} className="px-2 py-2 text-gray-600 border-r border-gray-100">
+                                                <td key={j} className="px-2 py-2 border-r whitespace-nowrap" style={{ color: 'var(--text-secondary)', borderColor: 'var(--table-row-border)' }}>
                                                     {String(val).length > 20 ? `${String(val).substring(0, 20)}...` : String(val)}
                                                 </td>
                                             ))}
@@ -338,11 +372,11 @@ export default function Processing() {
                                     ))}
                                 </tbody>
                             </table>
-                            <p className="text-xs text-gray-400 mt-2">Showing first 10 rows</p>
+                            <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>Showing first 10 rows</p>
                         </div>
                     ) : (
-                        <div className="text-gray-400 text-sm flex flex-col items-center gap-2 mt-8">
-                            <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-2xl">📋</div>
+                        <div className="text-sm flex flex-col items-center gap-2 mt-8" style={{ color: 'var(--text-muted)' }}>
+                            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background: 'var(--card-bg)' }}>📋</div>
                             <p>No preview available</p>
                         </div>
                     )}

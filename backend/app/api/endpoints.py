@@ -379,6 +379,9 @@ async def upload_excel_file(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail=f"Failed to parse Excel file: {e}")
 
     sheet_json = excel_ai_service.workbook_to_sheet_json(workbook)
+    sheet_json, _ = excel_ai_service.enrich_sheet_json_and_changes_from_file(
+        file_path, sheet_json, None
+    )
     excel_sessions[session_id] = {
         "filename": file.filename,
         "original_path": file_path,
@@ -419,29 +422,40 @@ async def process_excel_ai(request: dict = Body(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI processing failed: {e}")
 
+    is_read_only = result.get("readOnly", False)
+
+    if is_read_only:
+        return {
+            "message": "AI analyzed your spreadsheet.",
+            "result": result,
+            "updated_sheet_json": None,
+            "changes_made": [],
+            "charts_created": [],
+            "dashboard_summary": {"created": False, "sheet": None, "elements": 0},
+            "changed_sheets": [],
+            "download_url": None,
+        }
+
     updated_path = os.path.join(settings.UPLOAD_DIR, f"{session_id}_updated.xlsx")
     workbook.save(updated_path)
     excel_sessions[session_id]["current_path"] = updated_path
 
     updated_sheet_json = excel_ai_service.workbook_to_sheet_json(workbook)
+    change_tracking = list(result.get("change_tracking", []))
+    updated_sheet_json, change_tracking = excel_ai_service.enrich_sheet_json_and_changes_from_file(
+        updated_path, updated_sheet_json, change_tracking
+    )
+    result["change_tracking"] = change_tracking
     dashboard_summary = result.get("dashboard_summary", {})
 
-    preview_table = excel_ai_service.extract_sheet_preview(workbook, max_rows=15)
-
-    dashboard_preview = None
-    dash_sheet = dashboard_summary.get("sheet")
-    if dashboard_summary.get("created") and dash_sheet and dash_sheet in workbook.sheetnames:
-        dashboard_preview = excel_ai_service.extract_sheet_preview(workbook, sheet_name=dash_sheet, max_rows=20)
-
     return {
-        "message": "AI is analyzing your spreadsheet...",
+        "message": "AI modified your spreadsheet.",
         "result": result,
         "updated_sheet_json": updated_sheet_json,
-        "changes_made": result.get("change_tracking", []),
+        "changes_made": change_tracking,
         "charts_created": result.get("applied_charts", []),
         "dashboard_summary": dashboard_summary,
-        "preview_table": preview_table,
-        "dashboard_preview": dashboard_preview,
+        "changed_sheets": result.get("changed_sheets", []),
         "download_url": f"/api/excel/download?session_id={session_id}",
     }
 

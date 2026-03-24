@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import AxelLogo from '../assets/Axellogo.png';
+import { useTheme } from '../hooks/useTheme';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function Signup() {
     const [name, setName] = useState('');
@@ -9,152 +11,204 @@ export default function Signup() {
     const [focused, setFocused] = useState('');
     const [step, setStep] = useState(1);
     const navigate = useNavigate();
+    const { dark, toggle: toggleTheme } = useTheme();
 
     const handleSignup = (e) => {
         e.preventDefault();
         if (name && email && password) {
-            const userData = {
-                name,
-                email,
-                password,
-                createdAt: new Date().toISOString()
-            };
             localStorage.setItem('isAuthenticated', 'true');
             localStorage.setItem('userEmail', email);
             localStorage.setItem('userName', name);
-            localStorage.setItem('userData', JSON.stringify(userData));
+            localStorage.setItem('userData', JSON.stringify({ name, email, password, createdAt: new Date().toISOString() }));
             navigate('/dashboard');
         }
     };
 
-    const inputClass = (field) =>
-        `relative rounded-xl border-2 transition-all duration-300 ${
-            focused === field ? 'border-teal-500 shadow-lg shadow-teal-500/10' : 'border-gray-200'
-        }`;
+    const wrapStyle = (field) => ({
+        background: 'var(--input-bg)',
+        borderColor: focused === field ? undefined : 'var(--border-color)',
+    });
+
+    const leftTitle = dark ? '#ffffff' : '#0f172a';
+    const leftSub = dark ? 'rgba(255,255,255,0.72)' : '#334155';
+    const stepActive = dark ? 'text-teal-200' : 'text-teal-800';
+    const stepInactive = dark ? 'text-slate-500' : 'text-slate-600';
 
     return (
-        <div className="flex min-h-screen bg-white">
-            {/* Left panel - branding */}
-            <div className="hidden lg:flex lg:w-1/2 relative bg-gray-900 overflow-hidden items-center justify-center">
-                <div className="absolute inset-0 grid-pattern opacity-30" />
-                <div className="absolute top-20 -right-20 w-96 h-96 bg-teal-500/20 rounded-full blur-3xl animate-float" />
-                <div className="absolute -bottom-20 left-10 w-80 h-80 bg-teal-400/15 rounded-full blur-3xl animate-float-slow" />
+        <div className="flex min-h-screen relative overflow-hidden" style={{ background: 'var(--page-bg)' }}>
+            <div className="absolute inset-0 grid-pattern pointer-events-none opacity-40" />
+            <div className="absolute top-4 right-4 z-50">
+                <ThemeToggle dark={dark} toggle={toggleTheme} />
+            </div>
 
-                <div className="relative z-10 text-center px-12">
-                    <div className="mb-8 flex justify-center">
-                        <div className="p-4 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/10 animate-glow-pulse">
-                            <img src={AxelLogo} alt="Axel AI" className="h-20 w-20 object-contain" />
+            <div
+                className="hidden lg:flex lg:w-[48%] xl:w-1/2 relative overflow-hidden items-center justify-center"
+                style={{
+                    background: dark
+                        ? 'linear-gradient(145deg, #0a0f18 0%, #0d2832 45%, #0d4a45 100%)'
+                        : 'linear-gradient(145deg, #ccfbf1 0%, #99f6e4 35%, #5eead4 70%, #2dd4bf 100%)',
+                }}
+            >
+                <div className="absolute inset-0 opacity-25" style={{ background: 'radial-gradient(circle at 70% 20%, rgba(45,212,191,0.35), transparent 45%)' }} />
+                <div className="absolute top-24 -right-16 w-[400px] h-[400px] rounded-full blur-3xl" style={{ background: dark ? 'rgba(45,212,191,0.1)' : 'rgba(255,255,255,0.4)' }} />
+
+                <div className="relative z-10 text-center px-10 max-w-lg">
+                    <div className="mb-10 flex justify-center">
+                        <div
+                            className="p-6 rounded-3xl border shadow-2xl backdrop-blur-md"
+                            style={{
+                                background: dark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.55)',
+                                borderColor: dark ? 'rgba(255,255,255,0.12)' : 'rgba(15,118,110,0.2)',
+                            }}
+                        >
+                            <img src={AxelLogo} alt="Axel AI" className="h-24 w-24 object-contain" />
                         </div>
                     </div>
-                    <h2 className="text-4xl font-bold text-white mb-4">Join Axel AI</h2>
-                    <p className="text-teal-200 text-lg leading-relaxed max-w-md mx-auto">
-                        Create your account and start building intelligent dashboards with AI in seconds.
+                    <h2 className="text-4xl font-bold mb-4 tracking-tight" style={{ color: leftTitle }}>Join Axel AI</h2>
+                    <p className="text-lg leading-relaxed" style={{ color: leftSub }}>
+                        Create your account and start transforming spreadsheets with AI-driven execution and structured answers.
                     </p>
 
-                    {/* Animated steps */}
-                    <div className="mt-12 space-y-4 max-w-sm mx-auto text-left">
+                    <div className="mt-12 space-y-3 max-w-sm mx-auto text-left">
                         {[
-                            { num: 1, text: 'Create your account', active: step >= 1 },
-                            { num: 2, text: 'Upload your spreadsheet', active: step >= 2 },
-                            { num: 3, text: 'Ask AI to build dashboards', active: step >= 3 },
+                            { num: 1, text: 'Create your account', icon: '👤' },
+                            { num: 2, text: 'Upload your workbook', icon: '📄' },
+                            { num: 3, text: 'Prompt Axel AI to run changes', icon: '🚀' },
                         ].map((s) => (
-                            <div key={s.num} className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-500 ${s.active ? 'bg-teal-500/20 border border-teal-400/30' : 'bg-white/5 border border-white/5'}`}>
-                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${s.active ? 'bg-teal-500 text-white' : 'bg-white/10 text-gray-400'}`}>
-                                    {s.num}
+                            <div
+                                key={s.num}
+                                className={`flex items-center gap-4 p-4 rounded-2xl border transition-all duration-500 ${step >= s.num ? 'shadow-lg' : ''}`}
+                                style={{
+                                    background: step >= s.num
+                                        ? (dark ? 'rgba(45,212,191,0.12)' : 'rgba(255,255,255,0.5)')
+                                        : (dark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.35)'),
+                                    borderColor: step >= s.num
+                                        ? (dark ? 'rgba(45,212,191,0.35)' : 'rgba(13,148,136,0.35)')
+                                        : (dark ? 'rgba(255,255,255,0.08)' : 'rgba(15,118,110,0.12)'),
+                                }}
+                            >
+                                <div
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+                                    style={{ background: step >= s.num ? 'rgba(45,212,191,0.25)' : (dark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.6)') }}
+                                >
+                                    {s.icon}
                                 </div>
-                                <span className={`text-sm ${s.active ? 'text-teal-200' : 'text-gray-500'}`}>{s.text}</span>
+                                <div>
+                                    <span className={`text-sm font-medium ${step >= s.num ? stepActive : stepInactive}`}>{s.text}</span>
+                                    <div className={`text-[10px] mt-0.5 ${step >= s.num ? (dark ? 'text-teal-400/70' : 'text-teal-700') : stepInactive}`}>Step {s.num}</div>
+                                </div>
                             </div>
                         ))}
                     </div>
                 </div>
             </div>
 
-            {/* Right panel - signup form */}
-            <div className="flex-1 flex items-center justify-center px-6 py-12">
-                <div className="w-full max-w-md">
+            <div className="flex-1 flex items-center justify-center px-6 py-14 relative" style={{ background: dark ? 'linear-gradient(180deg, #0c0e16 0%, #0f1119 100%)' : 'var(--panel-bg)' }}>
+                <div className="w-full max-w-md relative z-10">
                     <div className="lg:hidden flex justify-center mb-8">
-                        <img src={AxelLogo} alt="Axel AI" className="h-14 w-14 rounded-xl object-contain" />
+                        <div className="p-3 rounded-2xl border shadow-lg" style={{ background: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
+                            <img src={AxelLogo} alt="Axel AI" className="h-14 w-14 rounded-xl object-contain" />
+                        </div>
                     </div>
 
-                    <div className="mb-8">
-                        <p className="text-xs tracking-widest uppercase text-teal-600 font-semibold mb-1">Axel AI</p>
-                        <h2 className="text-3xl font-bold text-gray-900">Create Account</h2>
-                        <p className="text-gray-500 mt-1">Start building dashboards with AI today.</p>
-                    </div>
-
-                    {/* Progress bar */}
-                    <div className="flex gap-2 mb-8">
-                        {[1, 2, 3].map((s) => (
-                            <div key={s} className={`h-1 flex-1 rounded-full transition-all duration-500 ${s <= step ? 'bg-teal-500' : 'bg-gray-200'}`} />
-                        ))}
-                    </div>
-
-                    <form onSubmit={handleSignup} className="space-y-5">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
-                            <div className={inputClass('name')}>
-                                <input
-                                    type="text"
-                                    required
-                                    className="w-full px-4 py-3 bg-transparent rounded-xl focus:outline-none text-gray-900 placeholder-gray-400"
-                                    value={name}
-                                    onChange={(e) => { setName(e.target.value); if (e.target.value) setStep(Math.max(step, 1)); }}
-                                    onFocus={() => setFocused('name')}
-                                    onBlur={() => setFocused('')}
-                                    placeholder="John Doe"
-                                />
-                            </div>
+                    <div
+                        className="rounded-2xl border p-8 sm:p-9 shadow-xl"
+                        style={{
+                            background: 'var(--glass-bg)',
+                            borderColor: 'var(--glass-border)',
+                            boxShadow: dark ? '0 25px 50px -12px rgba(0,0,0,0.45)' : '0 25px 50px -12px rgba(15,23,42,0.08)',
+                        }}
+                    >
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border text-xs font-medium mb-5" style={{ background: 'var(--card-bg)', borderColor: 'var(--border-color)', color: 'var(--teal-accent)' }}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+                            Axel AI Studio
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-                            <div className={inputClass('email')}>
-                                <input
-                                    type="email"
-                                    required
-                                    className="w-full px-4 py-3 bg-transparent rounded-xl focus:outline-none text-gray-900 placeholder-gray-400"
-                                    value={email}
-                                    onChange={(e) => { setEmail(e.target.value); if (e.target.value) setStep(Math.max(step, 2)); }}
-                                    onFocus={() => setFocused('email')}
-                                    onBlur={() => setFocused('')}
-                                    placeholder="john@example.com"
-                                />
-                            </div>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
-                            <div className={inputClass('password')}>
-                                <input
-                                    type="password"
-                                    required
-                                    className="w-full px-4 py-3 bg-transparent rounded-xl focus:outline-none text-gray-900 placeholder-gray-400"
-                                    value={password}
-                                    onChange={(e) => { setPassword(e.target.value); if (e.target.value) setStep(3); }}
-                                    onFocus={() => setFocused('password')}
-                                    onBlur={() => setFocused('')}
-                                    placeholder="••••••••"
-                                />
-                            </div>
-                        </div>
-                        <button
-                            type="submit"
-                            className="w-full py-3.5 font-bold text-white bg-teal-600 rounded-xl hover:bg-teal-700 transition-all shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 hover:-translate-y-0.5 active:translate-y-0"
-                        >
-                            Create Account & Get Started
-                        </button>
-                    </form>
+                        <h2 className="text-3xl font-bold tracking-tight" style={{ color: 'var(--text-primary)' }}>Create account</h2>
+                        <p className="mt-2 text-sm" style={{ color: 'var(--text-secondary)' }}>Start building dashboards and sheet workflows in minutes.</p>
 
-                    <div className="mt-6 text-center">
-                        <p className="text-sm text-gray-500">
-                            Already have an account?{' '}
-                            <Link to="/login" className="text-teal-600 hover:text-teal-700 font-semibold transition-colors">Login</Link>
+                        <div className="flex gap-2 mt-7 mb-2">
+                            {[1, 2, 3].map((s) => (
+                                <div
+                                    key={s}
+                                    className="h-1.5 flex-1 rounded-full transition-all duration-500"
+                                    style={{ background: s <= step ? '#14b8a6' : 'var(--border-color)' }}
+                                />
+                            ))}
+                        </div>
+
+                        <form onSubmit={handleSignup} className="space-y-5 mt-6">
+                            <div>
+                                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Full name</label>
+                                <div
+                                    className={`relative rounded-xl border-2 transition-all duration-300 ${focused === 'name' ? 'ring-2 ring-teal-500/30 border-teal-500' : ''}`}
+                                    style={wrapStyle('name')}
+                                >
+                                    <input
+                                        type="text" required
+                                        className="w-full px-4 py-3.5 bg-transparent rounded-xl focus:outline-none text-sm theme-input"
+                                        style={{ color: 'var(--text-primary)' }}
+                                        value={name}
+                                        onChange={(e) => { setName(e.target.value); if (e.target.value) setStep(Math.max(step, 1)); }}
+                                        onFocus={() => setFocused('name')}
+                                        onBlur={() => setFocused('')}
+                                        placeholder="John Doe"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Email</label>
+                                <div
+                                    className={`relative rounded-xl border-2 transition-all duration-300 ${focused === 'email' ? 'ring-2 ring-teal-500/30 border-teal-500' : ''}`}
+                                    style={wrapStyle('email')}
+                                >
+                                    <input
+                                        type="email" required
+                                        className="w-full px-4 py-3.5 bg-transparent rounded-xl focus:outline-none text-sm theme-input"
+                                        style={{ color: 'var(--text-primary)' }}
+                                        value={email}
+                                        onChange={(e) => { setEmail(e.target.value); if (e.target.value) setStep(Math.max(step, 2)); }}
+                                        onFocus={() => setFocused('email')}
+                                        onBlur={() => setFocused('')}
+                                        placeholder="john@example.com"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>Password</label>
+                                <div
+                                    className={`relative rounded-xl border-2 transition-all duration-300 ${focused === 'password' ? 'ring-2 ring-teal-500/30 border-teal-500' : ''}`}
+                                    style={wrapStyle('password')}
+                                >
+                                    <input
+                                        type="password" required
+                                        className="w-full px-4 py-3.5 bg-transparent rounded-xl focus:outline-none text-sm theme-input"
+                                        style={{ color: 'var(--text-primary)' }}
+                                        value={password}
+                                        onChange={(e) => { setPassword(e.target.value); if (e.target.value) setStep(3); }}
+                                        onFocus={() => setFocused('password')}
+                                        onBlur={() => setFocused('')}
+                                        placeholder="••••••••"
+                                    />
+                                </div>
+                            </div>
+                            <button
+                                type="submit"
+                                className="w-full py-3.5 font-bold text-white rounded-xl transition-all hover:-translate-y-0.5 active:translate-y-0 text-sm"
+                                style={{ background: 'linear-gradient(135deg, #0d9488, #14b8a6)', boxShadow: '0 12px 36px rgba(13, 148, 136, 0.35)' }}
+                            >
+                                Create account & launch workspace
+                            </button>
+                        </form>
+
+                        <p className="mt-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
+                            Already registered?{' '}
+                            <Link to="/login" className="text-teal-600 dark:text-teal-400 font-semibold hover:underline">Sign in</Link>
                         </p>
                     </div>
 
-                    <div className="mt-8 pt-6 border-t border-gray-100">
-                        <p className="text-xs text-center text-gray-400">
-                            The agent can clean files, generate dashboards, and create diagrams on demand.
-                        </p>
-                    </div>
+                    <p className="text-xs text-center mt-6" style={{ color: 'var(--text-muted)' }}>
+                        Axel AI can add columns, formulas, summaries, and charts when your prompt asks for workbook changes.
+                    </p>
                 </div>
             </div>
         </div>
