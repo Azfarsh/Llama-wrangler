@@ -12,17 +12,14 @@ def _clean_env(value: str) -> str:
     return (value or "").strip().strip('"').strip("'")
 
 
-def _first_present_env(*names: str) -> str:
-    for name in names:
-        value = _clean_env(os.getenv(name, ""))
-        if value:
-            return value
-    return ""
+def _gemini_api_key() -> str:
+    # Strictly read the official key only.
+    return _clean_env(os.getenv("GEMINI_API_KEY", ""))
 
 
 class Settings(BaseModel):
     PROJECT_NAME: str = "AutoDW-Lite"
-    GEMINI_API_KEY: str = _first_present_env("GEMINI_API_KEY", "GOOGLE_API_KEY", "GENAI_API_KEY")
+    GEMINI_API_KEY: str = _gemini_api_key()
     GEMINI_MODEL: str = _clean_env(os.getenv("GEMINI_MODEL", "gemini-2.5-flash"))
     GEMINI_TIMEOUT_SEC: int = int(os.getenv("GEMINI_TIMEOUT_SEC", "45"))
     UPLOAD_DIR: str = "uploads"

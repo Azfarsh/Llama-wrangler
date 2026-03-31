@@ -8,6 +8,7 @@ from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.feature_extraction.text import TfidfVectorizer
 import json
 from openpyxl import Workbook
+from openpyxl.chart import BarChart, PieChart, Reference
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.utils import get_column_letter
 
@@ -288,6 +289,38 @@ class DataService:
         return result, ["Applied generated transformation code from natural language query."], excel_outputs
 
     @staticmethod
+    def _add_dashboard_charts(wb: Workbook) -> None:
+        """
+        Add Excel-native charts for generated dashboard sheets.
+        This ensures downloaded .xlsx files include visible diagrams.
+        """
+        if "KPI_Summary" in wb.sheetnames:
+            ws_kpi = wb["KPI_Summary"]
+            if (ws_kpi.max_row or 1) >= 3 and (ws_kpi.max_column or 1) >= 2:
+                pie = PieChart()
+                pie.title = "KPI Distribution"
+                labels = Reference(ws_kpi, min_col=1, min_row=2, max_row=ws_kpi.max_row)
+                data = Reference(ws_kpi, min_col=2, min_row=1, max_row=ws_kpi.max_row)
+                pie.add_data(data, titles_from_data=True)
+                pie.set_categories(labels)
+                ws_kpi.add_chart(pie, "D2")
+
+        if "Top_Categories" in wb.sheetnames:
+            ws_top = wb["Top_Categories"]
+            if (ws_top.max_row or 1) >= 3 and (ws_top.max_column or 1) >= 2:
+                bar = BarChart()
+                bar.type = "col"
+                bar.style = 10
+                bar.title = "Top Categories Count"
+                bar.y_axis.title = "Count"
+                bar.x_axis.title = "Category"
+                labels = Reference(ws_top, min_col=1, min_row=2, max_row=ws_top.max_row)
+                data = Reference(ws_top, min_col=2, min_row=1, max_row=ws_top.max_row)
+                bar.add_data(data, titles_from_data=True)
+                bar.set_categories(labels)
+                ws_top.add_chart(bar, "D2")
+
+    @staticmethod
     def save_excel_with_outputs(
         output_path: str,
         main_df: pd.DataFrame,
@@ -337,6 +370,8 @@ class DataService:
             extra_ws = wb.create_sheet(title=sheet_name)
             write_df_to_ws(extra_ws, sheet_df)
 
+        # Embed charts when dashboard/helper sheets are present.
+        DataService._add_dashboard_charts(wb)
         wb.save(output_path)
 
     @staticmethod

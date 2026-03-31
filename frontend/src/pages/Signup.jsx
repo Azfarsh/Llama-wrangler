@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import AxelLogo from '../assets/Axellogo.png';
 import { useTheme } from '../hooks/useTheme';
 import ThemeToggle from '../components/ThemeToggle';
+import BrandLogo from '../components/BrandLogo';
 
 export default function Signup() {
     const [name, setName] = useState('');
@@ -61,7 +61,7 @@ export default function Signup() {
                                 borderColor: dark ? 'rgba(255,255,255,0.12)' : 'rgba(15,118,110,0.2)',
                             }}
                         >
-                            <img src={AxelLogo} alt="Axel AI" className="h-24 w-24 object-contain" />
+                            <BrandLogo size="hero" />
                         </div>
                     </div>
                     <h2 className="text-4xl font-bold mb-4 tracking-tight" style={{ color: leftTitle }}>Join Axel AI</h2>
@@ -107,7 +107,7 @@ export default function Signup() {
                 <div className="w-full max-w-md relative z-10">
                     <div className="lg:hidden flex justify-center mb-8">
                         <div className="p-3 rounded-2xl border shadow-lg" style={{ background: 'var(--card-bg)', borderColor: 'var(--border-color)' }}>
-                            <img src={AxelLogo} alt="Axel AI" className="h-14 w-14 rounded-xl object-contain" />
+                            <BrandLogo size="xl" />
                         </div>
                     </div>
 

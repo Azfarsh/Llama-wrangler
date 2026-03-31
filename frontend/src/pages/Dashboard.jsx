@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import AxelLogo from '../assets/Axellogo.png';
 import { useTheme } from '../hooks/useTheme';
 import ThemeToggle from '../components/ThemeToggle';
+import BrandLogo from '../components/BrandLogo';
+import PlotlyFigure from '../components/PlotlyFigure';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const TEMPLATES = ['executive', 'sales', 'operations', 'finance'];
@@ -78,6 +79,22 @@ function formatExplanation(text) {
         .replace(/^- \*\*/gm, '- ')
         .replace(/\*\*/g, '')
         .trim();
+    if ((normalized.startsWith('[') && normalized.endsWith(']')) || (normalized.startsWith('{') && normalized.endsWith('}'))) {
+        try {
+            const parsed = JSON.parse(normalized);
+            if (Array.isArray(parsed)) {
+                normalized = parsed.map((x) => `- ${String(x).replace(/^[-•*]\s+/, '')}`).join('\n');
+            } else if (parsed && typeof parsed === 'object') {
+                const values = Object.values(parsed).map((x) => String(x));
+                normalized = values.map((x) => `- ${x.replace(/^[-•*]\s+/, '')}`).join('\n');
+            }
+        } catch (_) {
+            normalized = normalized
+                .replace(/[\[\]\{\}"]/g, '')
+                .replace(/,\s*(?=[A-Za-z0-9-])/g, '\n- ')
+                .replace(/^\s*/, '- ');
+        }
+    }
     const lines = normalized.split('\n').map((line) => line.trim()).filter(Boolean);
     if (lines.some((line) => /^[-•]\s+/.test(line))) {
         return lines.join('\n');
@@ -132,6 +149,107 @@ function ExplanationText({ text }) {
 }
 
 const CHART_ICONS = { bar: 'B', line: 'L', pie: 'P' };
+
+function _colLettersToIndex(col) {
+    let out = 0;
+    const s = String(col || '').toUpperCase();
+    for (let i = 0; i < s.length; i += 1) out = out * 26 + (s.charCodeAt(i) - 64);
+    return out;
+}
+
+function _indexToColLetters(index) {
+    let n = index;
+    let out = '';
+    while (n > 0) {
+        const rem = (n - 1) % 26;
+        out = String.fromCharCode(65 + rem) + out;
+        n = Math.floor((n - 1) / 26);
+    }
+    return out || 'A';
+}
+
+function _parseA1Range(range) {
+    const raw = String(range || '').trim().toUpperCase();
+    const withoutSheet = raw.includes('!') ? raw.split('!').slice(-1)[0].replace(/^'/, '').replace(/'$/, '') : raw;
+    const m = /^([A-Z]+)(\d+)\s*:\s*([A-Z]+)(\d+)$/.exec(withoutSheet);
+    if (!m) return null;
+    return {
+        startCol: _colLettersToIndex(m[1]),
+        startRow: Number(m[2]),
+        endCol: _colLettersToIndex(m[3]),
+        endRow: Number(m[4]),
+    };
+}
+
+function _cellValue(sheetJson, sheet, colIndex, rowIndex) {
+    const coord = `${_indexToColLetters(colIndex)}${rowIndex}`;
+    const entry = sheetJson?.[sheet]?.[coord];
+    const v = entry?.value;
+    if (v === null || v === undefined) return '';
+    return v;
+}
+
+function _buildFigureFromRange(sheetJson, ch) {
+    const fromRange = String(ch?.dataRange || '').trim();
+    const rangeSheetMatch = /^'(.*?)'!|^([^!]+)!/.exec(fromRange);
+    const explicitSheet = (rangeSheetMatch?.[1] || rangeSheetMatch?.[2] || '').trim();
+    const sheet = explicitSheet || ch?.sheet;
+    const dataRange = ch?.dataRange;
+    const type = String(ch?.type || 'bar').toLowerCase();
+    if (!sheet || !dataRange) return null;
+    const r = _parseA1Range(dataRange);
+    if (!r) return null;
+    if (r.endRow - r.startRow < 1) return null;
+
+    const headers = [];
+    for (let c = r.startCol; c <= r.endCol; c += 1) {
+        headers.push(String(_cellValue(sheetJson, sheet, c, r.startRow) || `Series ${c - r.startCol + 1}`));
+    }
+    const catCol = r.startCol;
+    const xCategories = [];
+    for (let rr = r.startRow + 1; rr <= r.endRow; rr += 1) {
+        xCategories.push(String(_cellValue(sheetJson, sheet, catCol, rr) ?? ''));
+    }
+
+    const series = [];
+    for (let c = r.startCol + 1; c <= r.endCol; c += 1) {
+        const y = [];
+        for (let rr = r.startRow + 1; rr <= r.endRow; rr += 1) {
+            const raw = _cellValue(sheetJson, sheet, c, rr);
+            const num = typeof raw === 'number' ? raw : Number(String(raw).replace(/,/g, ''));
+            y.push(Number.isFinite(num) ? num : null);
+        }
+        series.push({ name: headers[c - r.startCol] || `Series ${c - r.startCol + 1}`, y });
+    }
+
+    if (!series.length) return null;
+
+    if (type === 'pie') {
+        const first = series[0];
+        return {
+            data: [
+                {
+                    type: 'pie',
+                    labels: xCategories,
+                    values: first.y.map((v) => (Number.isFinite(v) ? v : 0)),
+                    textinfo: 'label+percent',
+                    hole: 0.35,
+                },
+            ],
+            layout: { showlegend: true },
+        };
+    }
+
+    const plotType = type === 'line' ? 'scatter' : 'bar';
+    return {
+        data: series.map((s) => (
+            plotType === 'scatter'
+                ? { type: 'scatter', mode: 'lines+markers', name: s.name, x: xCategories, y: s.y }
+                : { type: 'bar', name: s.name, x: xCategories, y: s.y }
+        )),
+        layout: { barmode: 'group', showlegend: true },
+    };
+}
 
 
 function AnimatedStat({ label, value, icon, delay = 0 }) {
@@ -207,23 +325,39 @@ function KpiCards({ kpis }) {
 
 function ChangeLog() { return null; }
 
-function ChartCards({ charts }) {
+function ChartCards({ charts, sheetJson }) {
     if (!charts?.length) return null;
     return (
         <div className="mt-3">
             <p className="text-xs font-semibold mb-1" style={{ color: 'var(--text-secondary)' }}>Charts Created</p>
-            <div className="flex flex-wrap gap-2">
-                {charts.map((ch, i) => (
-                    <div key={i} className="flex items-center gap-2 bg-teal-900/30 border border-teal-700/40 rounded-lg px-3 py-1.5">
-                        <span className="w-6 h-6 flex items-center justify-center rounded bg-teal-800 text-teal-300 text-[10px] font-bold">
-                            {CHART_ICONS[ch.type] || 'C'}
-                        </span>
-                        <div>
-                            <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{ch.title}</p>
-                            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{ch.type} chart on {ch.sheet}</p>
+            <div className="space-y-2">
+                {charts.map((ch, i) => {
+                    const fig = _buildFigureFromRange(sheetJson, ch);
+                    return (
+                        <div key={i} className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-color)', background: 'var(--panel-bg)' }}>
+                            <div className="flex items-center gap-2 px-3 py-2" style={{ background: 'var(--card-bg)', borderBottom: '1px solid var(--border-color)' }}>
+                                <span className="w-6 h-6 flex items-center justify-center rounded bg-teal-800 text-teal-300 text-[10px] font-bold">
+                                    {CHART_ICONS[ch.type] || 'C'}
+                                </span>
+                                <div className="min-w-0">
+                                    <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{ch.title || 'Chart'}</p>
+                                    <p className="text-[10px] truncate" style={{ color: 'var(--text-muted)' }}>
+                                        {String(ch.type || 'chart')} • {ch.sheet}{ch.dataRange ? ` • ${ch.dataRange}` : ''}
+                                    </p>
+                                </div>
+                            </div>
+                            {fig ? (
+                                <div className="p-2">
+                                    <PlotlyFigure figure={fig} title={ch.title} className="min-h-[220px]" />
+                                </div>
+                            ) : (
+                                <div className="px-3 py-2 text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                                    Preview will appear after chart data is generated in the sheet.
+                                </div>
+                            )}
                         </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );
@@ -245,7 +379,7 @@ function DashboardBadge({ summary, onSwitch }) {
     );
 }
 
-function RichMessage({ msg, onSwitchSheet }) {
+function RichMessage({ msg, onSwitchSheet, sheetJson }) {
     if (msg.role === 'user') {
         if (msg.imageUrl) {
             return (
@@ -289,7 +423,7 @@ function RichMessage({ msg, onSwitchSheet }) {
                 <div className="p-3"><ExplanationText text={msg.text} /></div>
                 <div className="px-3 pb-3 space-y-1">
                     <KpiCards kpis={msg.dashboardSummary?.kpis} />
-                    <ChartCards charts={msg.charts} />
+                    <ChartCards charts={msg.charts} sheetJson={sheetJson} />
                     <DashboardBadge summary={msg.dashboardSummary} onSwitch={msg.dashboardSummary?.sheet ? () => onSwitchSheet(msg.dashboardSummary.sheet) : null} />
                     <ChangeLog changes={msg.changes} />
                 </div>
@@ -309,7 +443,7 @@ export default function Dashboard() {
     const [prompt, setPrompt] = useState('');
     const [messages, setMessages] = useState([{
         role: 'assistant',
-        text: 'Hi! I am your Axel AI assistant. Upload an Excel file and I will analyze, transform, and generate structured insights from your data.',
+        text: 'Welcome to Axel AI — upload an Excel file and I’ll analyze and visualize it for you.',
     }]);
     const [statusText, setStatusText] = useState('Ready');
 
@@ -530,7 +664,7 @@ export default function Dashboard() {
             {/* Header */}
             <header className="glass px-4 sm:px-6 py-3 flex justify-between items-center sticky top-0 z-20">
                 <div className="flex items-center gap-3 min-w-0">
-                    <img src={AxelLogo} alt="Axel AI" className="h-8 w-8 sm:h-9 sm:w-9 rounded-xl object-contain shrink-0" />
+                    <BrandLogo size="md" className="shrink-0" />
                     <div className="min-w-0">
                         <h1 className="text-lg sm:text-xl font-bold flex items-center gap-2 flex-wrap" style={{ color: 'var(--text-primary)' }}>
                             Axel <span className="text-teal-500">AI</span> Studio
@@ -563,7 +697,16 @@ export default function Dashboard() {
                                 <input
                                     type="file"
                                     accept=".xlsx"
-                                    onChange={(e) => setFile(e.target.files[0])}
+                                    onChange={(e) => {
+                                        const f = e.target.files?.[0] || null;
+                                        setFile(f);
+                                        if (f) {
+                                            // Auto-upload so the preview updates immediately after selection.
+                                            window.setTimeout(() => {
+                                                try { handleUpload(); } catch {}
+                                            }, 0);
+                                        }
+                                    }}
                                     className="block w-full sm:w-auto text-sm file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-teal-600/20 file:text-teal-400 file:font-medium hover:file:bg-teal-600/30 file:cursor-pointer file:text-xs"
                                     style={{ color: 'var(--text-muted)' }}
                                 />
@@ -720,7 +863,7 @@ export default function Dashboard() {
                         {/* Messages */}
                         <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
                             {messages.map((m, idx) => (
-                                <RichMessage key={idx} msg={m} onSwitchSheet={switchToSheet} />
+                                <RichMessage key={idx} msg={m} onSwitchSheet={switchToSheet} sheetJson={sheetJson} />
                             ))}
                             {chatLoading && (
                                 <div className="flex justify-start">
@@ -751,7 +894,10 @@ export default function Dashboard() {
                                 <div className="mb-2">
                                     <button
                                         type="button"
-                                        onClick={() => window.open(downloadUrl, '_blank')}
+                                        onClick={() => {
+                                            const sep = downloadUrl.includes('?') ? '&' : '?';
+                                            window.open(`${downloadUrl}${sep}ts=${Date.now()}`, '_blank');
+                                        }}
                                         className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-xs font-medium hover:bg-teal-700 transition-colors"
                                     >
                                         Download Updated Excel

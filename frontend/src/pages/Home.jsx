@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import AxelLogo from '../assets/Axellogo.png';
 import { useTheme } from '../hooks/useTheme';
 import ThemeToggle from '../components/ThemeToggle';
+import BrandLogo from '../components/BrandLogo';
 
 function useInView(threshold = 0.15) {
     const ref = useRef(null);
@@ -114,7 +114,7 @@ export default function Home() {
             {/* Navbar */}
             <nav className="flex items-center justify-between px-4 sm:px-6 py-4 glass sticky top-0 z-50">
                 <Link to="/" className="flex items-center gap-3">
-                    <img src={AxelLogo} alt="Axel AI" className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl object-contain" />
+                    <BrandLogo size="md" className="shrink-0" />
                     <span className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Axel <span style={{ color: 'var(--teal-accent)' }}>AI</span></span>
                 </Link>
 
@@ -302,7 +302,11 @@ export default function Home() {
                             </div>
                             <div className="rounded-xl border p-4" style={{ background: 'var(--panel-bg)', borderColor: 'var(--border-color)' }}>
                                 <p className="text-sm mb-2 font-medium" style={{ color: 'var(--text-secondary)' }}>Diagram + Trends</p>
-                                <div className="h-20 rounded-lg bg-gradient-to-r from-teal-900/40 via-teal-800/20 to-transparent shimmer-bg" />
+                                <div className="h-20 rounded-lg border p-2 flex items-end gap-1.5 shimmer-bg" style={{ borderColor: 'var(--teal-soft-border)', background: 'linear-gradient(135deg, rgba(45,212,191,0.12), transparent)' }}>
+                                    {[24, 36, 52, 44, 68, 60].map((h, idx) => (
+                                        <div key={idx} className="flex-1 rounded-sm bg-teal-500/60" style={{ height: `${h}%` }} />
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -361,7 +365,7 @@ export default function Home() {
                     <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-8 mb-8">
                         <div>
                             <div className="flex items-center gap-2 mb-4">
-                                <img src={AxelLogo} alt="Axel AI" className="h-8 w-8 rounded-lg object-contain" />
+                                <BrandLogo size="sm" className="shrink-0" />
                                 <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>Axel AI</span>
                             </div>
                             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Professional AI workspace for data, dashboards, and operations.</p>

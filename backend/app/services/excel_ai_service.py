@@ -2,6 +2,7 @@ import json
 import math
 import os
 import re
+import ast
 from typing import Any, Dict, List, Optional, Tuple
 
 from openpyxl import Workbook
@@ -83,6 +84,56 @@ class ExcelAIService:
         self.client = None
         if settings.GEMINI_API_KEY and google_genai is not None:
             self.client = google_genai.Client(api_key=settings.GEMINI_API_KEY)
+
+    @staticmethod
+    def _format_explanation_as_bullets(text: Any) -> str:
+        raw = str(text or "").strip()
+        if not raw:
+            return "- Processed request successfully."
+        parsed_struct = None
+        if (raw.startswith("[") and raw.endswith("]")) or (raw.startswith("{") and raw.endswith("}")):
+            try:
+                parsed_struct = json.loads(raw)
+            except Exception:
+                try:
+                    parsed_struct = ast.literal_eval(raw)
+                except Exception:
+                    parsed_struct = None
+        if isinstance(parsed_struct, list):
+            items = [str(x).strip() for x in parsed_struct if str(x).strip()]
+            if items:
+                return "\n".join(f"- {re.sub(r'^[-•*]\\s+', '', it)}" for it in items)
+        if isinstance(parsed_struct, dict):
+            items = [str(v).strip() for v in parsed_struct.values() if str(v).strip()]
+            if items:
+                return "\n".join(f"- {re.sub(r'^[-•*]\\s+', '', it)}" for it in items)
+        lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
+        if not lines:
+            return "- Processed request successfully."
+        if any(re.match(r"^[-•*]\s+", ln) for ln in lines):
+            return "\n".join(re.sub(r"^[-•*]\s+", "- ", ln) for ln in lines)
+        if len(lines) > 1:
+            return "\n".join(f"- {re.sub(r'^\d+\.\s*', '', ln)}" for ln in lines)
+        single = lines[0]
+        parts = [p.strip() for p in re.split(r"\s*(?=\d+\.\s+)", single) if p.strip()]
+        if len(parts) > 1:
+            return "\n".join(f"- {re.sub(r'^\d+\.\s*', '', p)}" for p in parts)
+        return f"- {single}"
+
+    @staticmethod
+    def _split_sheet_and_range(data_range: str, fallback_sheet: str) -> Tuple[str, str]:
+        """
+        Accept A1:B10 or Sheet!A1:B10 (including quoted sheet names).
+        Returns (sheet_name, plain_a1_range_without_sheet_prefix).
+        """
+        raw = str(data_range or "").strip()
+        if not raw:
+            return fallback_sheet, ""
+        m = re.match(r"^\s*(?:'([^']+)'|([^!]+))!(\$?[A-Z]+\$?\d+:\$?[A-Z]+\$?\d+)\s*$", raw, flags=re.IGNORECASE)
+        if m:
+            sheet_name = (m.group(1) or m.group(2) or fallback_sheet).strip()
+            return sheet_name, m.group(3).replace("$", "")
+        return fallback_sheet, raw.replace("$", "")
 
     @staticmethod
     def _native_xl_value(v: Any) -> Any:
@@ -259,6 +310,8 @@ class ExcelAIService:
         user_message: str,
         sheet_json: Dict[str, Any],
     ) -> Dict[str, Any]:
+        if google_genai is None:
+            raise RuntimeError("Gemini SDK is missing. Install the google-genai package in backend environment.")
         if not self.client:
             raise RuntimeError("Gemini is not configured. Please set GEMINI_API_KEY.")
         data_summary = self._build_data_summary(sheet_json)
@@ -300,7 +353,9 @@ class ExcelAIService:
         if changes or charts or bool(dashboard.get("create")):
             read_only = False
         return {
-            "explanation": str(raw.get("explanation", "Processed request successfully.")),
+            "explanation": ExcelAIService._format_explanation_as_bullets(
+                raw.get("explanation", "Processed request successfully.")
+            ),
             "changes": changes,
             "charts": charts,
             "dashboard": dashboard,
@@ -316,7 +371,10 @@ class ExcelAIService:
     @staticmethod
     def _build_chart(chart_cfg: Dict[str, Any], ws) -> Optional[Any]:
         chart_type = str(chart_cfg.get("type", "bar")).lower()
-        data_range = str(chart_cfg.get("dataRange", "")).strip()
+        _, data_range = ExcelAIService._split_sheet_and_range(
+            str(chart_cfg.get("dataRange", "")).strip(),
+            ws.title,
+        )
         if not data_range:
             return None
         try:
@@ -383,18 +441,29 @@ class ExcelAIService:
 
         for idx, chart_cfg in enumerate(ai_plan.get("charts", [])):
             sheet_name = str(chart_cfg.get("sheet", "Sheet1"))
-            ws = self._ensure_sheet(workbook, sheet_name)
-            touched_sheets.add(sheet_name)
-            chart_obj = self._build_chart(chart_cfg, ws)
+            range_sheet, normalized_range = self._split_sheet_and_range(
+                str(chart_cfg.get("dataRange", "")).strip(),
+                sheet_name,
+            )
+            source_sheet_name = range_sheet or sheet_name
+            source_ws = self._ensure_sheet(workbook, source_sheet_name)
+            # User requirement: place all diagrams in the first sheet.
+            target_sheet_name = workbook.sheetnames[0] if workbook.sheetnames else source_sheet_name
+            target_ws = self._ensure_sheet(workbook, target_sheet_name)
+            touched_sheets.add(source_sheet_name)
+            touched_sheets.add(target_sheet_name)
+            normalized_cfg = {**chart_cfg, "sheet": source_sheet_name, "dataRange": normalized_range}
+            chart_obj = self._build_chart(normalized_cfg, source_ws)
             if chart_obj is None:
                 continue
             position = str(chart_cfg.get("position", "E5"))
-            ws.add_chart(chart_obj, position)
+            target_ws.add_chart(chart_obj, position)
             charts_created.append({
                 "index": idx,
-                "sheet": sheet_name,
+                "sheet": target_sheet_name,
                 "title": str(chart_cfg.get("title", "Chart")),
                 "type": str(chart_cfg.get("type", "bar")),
+                "dataRange": normalized_range or None,
                 "position": position,
             })
 
@@ -451,6 +520,186 @@ class ExcelAIService:
             }
 
         return changes_log, charts_created, dashboard_summary, sorted(touched_sheets)
+
+    @staticmethod
+    def _normalize_text(v: Any) -> str:
+        return str(v or "").strip().lower()
+
+    @staticmethod
+    def _find_header_col(ws, aliases: List[str]) -> Optional[int]:
+        alias_norm = [a.strip().lower() for a in aliases]
+        for c in range(1, (ws.max_column or 1) + 1):
+            h = ExcelAIService._normalize_text(ws.cell(row=1, column=c).value)
+            if not h:
+                continue
+            if any(a == h or a in h for a in alias_norm):
+                return c
+        return None
+
+    @staticmethod
+    def _is_visual_dashboard_query(user_message: str) -> bool:
+        q = (user_message or "").lower()
+        tokens = ("dashboard", "chart", "pie", "bar", "visual", "visualization", "diagram", "top 5", "top five")
+        return any(t in q for t in tokens)
+
+    def _apply_visual_dashboard_fallback(
+        self,
+        workbook: Workbook,
+        user_message: str,
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], Dict[str, Any], List[str], str]:
+        """
+        Deterministic visual fallback for locality + nearby-shops dashboard requests.
+        Ensures charts exist in workbook/download and can be previewed from sheet_json.
+        """
+        if not workbook.sheetnames:
+            return [], [], {"created": False, "sheet": None, "elements": 0}, [], "- No data sheet found to create visuals."
+        src_ws = workbook[workbook.sheetnames[0]]
+        area_col = self._find_header_col(src_ws, ["area/locality", "area", "locality", "city", "location"])
+        shops_col = self._find_header_col(src_ws, ["nearby shop", "nearby shop 1", "nearby shop1", "shop", "xerox shop", "nearby xerox"])
+        college_col = self._find_header_col(src_ws, ["college", "college name"])
+        if area_col is None:
+            return [], [], {"created": False, "sheet": None, "elements": 0}, [], "- Could not detect area/locality column for visual dashboard."
+
+        area_counts: Dict[str, int] = {}
+        shop_freq: Dict[str, int] = {}
+        rows = max(src_ws.max_row or 1, 1)
+        for r in range(2, rows + 1):
+            area = str(src_ws.cell(row=r, column=area_col).value or "").strip()
+            if area:
+                area_counts[area] = area_counts.get(area, 0) + 1
+            if shops_col is not None:
+                shop = str(src_ws.cell(row=r, column=shops_col).value or "").strip()
+                if shop:
+                    shop_freq[shop] = shop_freq.get(shop, 0) + 1
+
+        if not area_counts:
+            return [], [], {"created": False, "sheet": None, "elements": 0}, [], "- No area/locality values found for creating visuals."
+
+        changes_log: List[Dict[str, Any]] = []
+        charts_created: List[Dict[str, Any]] = []
+        touched_sheets = {src_ws.title}
+        start_col = (src_ws.max_column or 1) + 2
+
+        def addr(col_offset: int, row_idx: int) -> str:
+            return f"{get_column_letter(start_col + col_offset)}{row_idx}"
+
+        def write(col_offset: int, row_idx: int, value: Any):
+            cell_ref = addr(col_offset, row_idx)
+            before = src_ws[cell_ref].value
+            src_ws[cell_ref].value = value
+            changes_log.append({"sheet": src_ws.title, "cell": cell_ref, "before": before, "after": value, "fillColor": None})
+
+        write(0, 1, "Dashboard Analysis")
+        write(0, 2, "Auto-generated visual summary for locality and xerox opportunity")
+        write(0, 3, "Charts are placed below. Scroll slightly if needed.")
+
+        sorted_areas = sorted(area_counts.items(), key=lambda x: x[1], reverse=True)
+        top5_areas = sorted_areas[:5]
+        sorted_shops = sorted(shop_freq.items(), key=lambda x: x[1], reverse=True)[:10]
+
+        # Table 1: colleges per area
+        write(0, 4, "Area/Locality")
+        write(1, 4, "Number of Colleges")
+        row_ptr = 5
+        for area, count in sorted_areas[:20]:
+            write(0, row_ptr, area)
+            write(1, row_ptr, count)
+            row_ptr += 1
+        table1_end = row_ptr - 1
+
+        # Table 2: nearby shop frequency
+        write(3, 4, "Nearby Shop")
+        write(4, 4, "Frequency")
+        row_ptr2 = 5
+        for shop, count in sorted_shops:
+            write(3, row_ptr2, shop)
+            write(4, row_ptr2, count)
+            row_ptr2 += 1
+        table2_end = row_ptr2 - 1
+        if table2_end < 5:
+            write(3, 5, "No nearby shop data")
+            write(4, 5, 0)
+            table2_end = 5
+
+        # Table 3: top 5 areas
+        write(6, 4, "Top 5 Areas")
+        write(7, 4, "College Count")
+        row_ptr3 = 5
+        for area, count in top5_areas:
+            write(6, row_ptr3, area)
+            write(7, row_ptr3, count)
+            row_ptr3 += 1
+        table3_end = max(row_ptr3 - 1, 5)
+
+        table1_range = f"{addr(0,4)}:{addr(1,table1_end)}"
+        table2_range = f"{addr(3,4)}:{addr(4,table2_end)}"
+        table3_range = f"{addr(6,4)}:{addr(7,table3_end)}"
+        pos1 = addr(0, 8)
+        pos2 = addr(8, 8)
+        pos3 = addr(0, 24)
+        chart_specs = [
+            {
+                "sheet": src_ws.title,
+                "type": "bar",
+                "title": "Number of Colleges per Area/Locality",
+                "dataRange": table1_range,
+                "position": pos1,
+            },
+            {
+                "sheet": src_ws.title,
+                "type": "bar",
+                "title": "Frequency of Nearby Shops per College",
+                "dataRange": table2_range,
+                "position": pos2,
+            },
+            {
+                "sheet": src_ws.title,
+                "type": "pie",
+                "title": "Top 5 Areas by College Count",
+                "dataRange": table3_range,
+                "position": pos3,
+            },
+        ]
+        for idx, cfg in enumerate(chart_specs):
+            ch_obj = self._build_chart(cfg, src_ws)
+            if ch_obj is None:
+                continue
+            src_ws.add_chart(ch_obj, cfg["position"])
+            charts_created.append({
+                "index": idx,
+                "sheet": cfg["sheet"],
+                "title": cfg["title"],
+                "type": cfg["type"],
+                "dataRange": cfg["dataRange"],
+                "position": cfg["position"],
+            })
+
+        # Improve first-open readability in downloaded Excel.
+        src_ws.sheet_view.zoomScale = 90
+        src_ws.freeze_panes = addr(0, 5)
+        for off, width in {
+            0: 34, 1: 18, 2: 4,
+            3: 36, 4: 14, 5: 4,
+            6: 32, 7: 16, 8: 4,
+            9: 18, 10: 18,
+        }.items():
+            src_ws.column_dimensions[get_column_letter(start_col + off)].width = width
+
+        top_area_text = ", ".join([f"{a} ({c})" for a, c in top5_areas[:3]]) if top5_areas else "N/A"
+        explanation = "\n".join([
+            "- Added summary tables directly on Sheet1 so all operations stay in one sheet.",
+            "- Added bar chart for number of colleges per area/locality on Sheet1.",
+            "- Added bar chart for frequency of nearby xerox shops on Sheet1.",
+            "- Added pie chart for top 5 areas with highest college count on Sheet1.",
+            f"- Highest opportunity areas based on college density: {top_area_text}.",
+        ])
+        dashboard_summary = {
+            "created": True,
+            "sheet": src_ws.title,
+            "elements": len(charts_created),
+            "kpis": [],
+        }
+        return changes_log, charts_created, dashboard_summary, sorted(touched_sheets), explanation
 
     @staticmethod
     def extract_sheet_preview(
@@ -511,6 +760,17 @@ class ExcelAIService:
             }
 
         change_tracking, applied_charts, dashboard_summary, changed_sheets = self.apply_plan_to_workbook(workbook, plan)
+        if self._is_visual_dashboard_query(user_message):
+            fb_changes, fb_charts, fb_dash, fb_sheets, fb_explanation = self._apply_visual_dashboard_fallback(
+                workbook=workbook,
+                user_message=user_message,
+            )
+            if fb_charts:
+                change_tracking = fb_changes
+                applied_charts = fb_charts
+                dashboard_summary = fb_dash
+                changed_sheets = fb_sheets
+                plan["explanation"] = self._format_explanation_as_bullets(fb_explanation)
         return {
             **plan,
             "change_tracking": change_tracking,

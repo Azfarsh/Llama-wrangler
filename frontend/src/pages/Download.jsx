@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import AxelLogo from '../assets/Axellogo.png';
 import { useTheme } from '../hooks/useTheme';
 import ThemeToggle from '../components/ThemeToggle';
+import BrandLogo from '../components/BrandLogo';
 
 function AnimatedStat({ label, value, color = 'teal', delay = 0 }) {
     const [show, setShow] = useState(false);
@@ -68,7 +68,7 @@ export default function Download() {
         <div className="min-h-screen" style={{ background: 'var(--page-bg)' }}>
             <nav className="glass px-4 sm:px-6 py-3 flex items-center justify-between sticky top-0 z-20">
                 <div className="flex items-center gap-3">
-                    <img src={AxelLogo} alt="Axel AI" className="h-8 w-8 rounded-lg object-contain" />
+                    <BrandLogo size="md" className="shrink-0" />
                     <span className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Axel <span style={{ color: 'var(--teal-accent)' }}>AI</span></span>
                 </div>
                 <ThemeToggle dark={dark} toggle={toggleTheme} />

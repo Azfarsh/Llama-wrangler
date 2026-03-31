@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import AxelLogo from '../assets/Axellogo.png';
 import { useTheme } from '../hooks/useTheme';
 import ThemeToggle from '../components/ThemeToggle';
+import BrandLogo from '../components/BrandLogo';
 
 function useInView(threshold = 0.15) {
     const ref = useRef(null);
@@ -36,7 +36,7 @@ export default function HowItWorks() {
         <div className="min-h-screen" style={{ background: 'var(--page-bg)' }}>
             <nav className="glass px-4 sm:px-6 py-4 flex items-center justify-between sticky top-0 z-50">
                 <Link to="/" className="flex items-center gap-3">
-                    <img src={AxelLogo} alt="Axel AI" className="h-9 w-9 rounded-xl object-contain" />
+                    <BrandLogo size="md" className="shrink-0" />
                     <span className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Axel <span style={{ color: 'var(--teal-accent)' }}>AI</span></span>
                 </Link>
                 <div className="hidden sm:flex items-center gap-4">

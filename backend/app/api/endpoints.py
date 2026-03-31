@@ -9,6 +9,7 @@ from app.services.excel_ai_service import ExcelAIService
 from app.schemas import validate_plan
 from app.core.config import settings
 import os
+import time
 import pandas as pd
 import uuid
 import json
@@ -437,6 +438,9 @@ async def process_excel_ai(request: dict = Body(...)):
         }
 
     updated_path = os.path.join(settings.UPLOAD_DIR, f"{session_id}_updated.xlsx")
+    # Keep first sheet as landing sheet; charts are now written there.
+    if workbook.sheetnames:
+        workbook.active = 0
     workbook.save(updated_path)
     excel_sessions[session_id]["current_path"] = updated_path
 
@@ -467,8 +471,17 @@ async def download_excel_file(session_id: str):
     path = excel_sessions[session_id].get("current_path")
     if not path or not os.path.exists(path):
         raise HTTPException(status_code=404, detail="Updated file not found.")
-    filename = os.path.basename(path)
-    return FileResponse(path, filename=filename)
+    base, ext = os.path.splitext(os.path.basename(path))
+    fresh_name = f"{base}_{int(time.time())}{ext or '.xlsx'}"
+    return FileResponse(
+        path,
+        filename=fresh_name,
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        },
+    )
 
 
 @router.get("/excel/health")

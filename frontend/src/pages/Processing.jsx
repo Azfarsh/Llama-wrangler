@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import AxelLogo from '../assets/Axellogo.png';
 import { useTheme } from '../hooks/useTheme';
 import ThemeToggle from '../components/ThemeToggle';
+import BrandLogo from '../components/BrandLogo';
 
 const API_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 const API_ORIGIN = import.meta.env.VITE_API_ORIGIN || 'http://localhost:8000';
@@ -52,14 +52,7 @@ export default function Processing() {
     const [sessionId, setSessionId] = useState(localStorage.getItem('sessionId'));
     const [filename, setFilename] = useState(localStorage.getItem('filename') || 'dataset');
 
-    const buildWelcomeMessage = (fileLabel) =>
-        `Hello! I loaded your dataset "${fileLabel}".\n\n` +
-        'You can ask in natural language, for example:\n' +
-        '- Give insights about this sheet\n' +
-        '- Sort by Date descending\n' +
-        '- Add column Total = Price * Quantity\n' +
-        '- Add new column City = "Pune" for every row\n' +
-        '- Show 5 unique rows by Area';
+    const buildWelcomeMessage = (fileLabel) => `Welcome to Axel AI — "${fileLabel}" is loaded. Ask what you want to change or generate.`;
 
     useEffect(() => {
         if (!sessionId) { navigate('/dashboard'); return; }
@@ -190,7 +183,7 @@ export default function Processing() {
         <div className="min-h-screen flex flex-col" style={{ background: 'var(--page-bg)' }}>
             <header className="glass px-4 sm:px-6 py-3 flex justify-between items-center sticky top-0 z-20">
                 <div className="flex items-center gap-3 min-w-0">
-                    <img src={AxelLogo} alt="Axel AI" className="h-8 w-8 rounded-lg object-contain shrink-0" />
+                    <BrandLogo size="md" className="shrink-0" />
                     <div className="min-w-0">
                         <h1 className="text-lg sm:text-xl font-bold" style={{ color: 'var(--text-primary)' }}>Axel <span style={{ color: 'var(--teal-accent)' }}>AI</span> Agent</h1>
                         <p className="text-xs truncate" style={{ color: 'var(--text-muted)' }}>Dataset: {filename}</p>
