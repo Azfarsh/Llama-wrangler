@@ -1,126 +1,97 @@
 # Axel AI
 
-**An Agentic AI System for Automatic Data Wrangling & Excel Intelligence**
+**Agentic AI for conversational data wrangling and Excel assistance**
 
-Upload any dataset, describe what you need in plain English, and get a clean, transformed, analysis-ready file back — no code, no formulas, no manual effort.
-
----
-
-## The Problem
-
-Data scientists spend **70–80% of their time** cleaning and preparing data instead of analyzing it. Traditional tools like Excel or Python scripts require technical expertise, repetitive manual work, and constant trial-and-error. Non-technical users are left completely out of the loop.
-
-## The Solution
-
-Axel AI is a **multi-agent AI system** that automates the entire data wrangling pipeline through a ChatGPT-style conversational interface. Users simply upload a file and describe their goal — the AI understands, plans, executes, validates, and delivers a clean dataset.
-
-**Powered by Google Gemini**, the system separates reasoning (LLM) from execution (deterministic Python), ensuring accurate, reproducible, and hallucination-free results.
+Upload a CSV or Excel file, describe what you want in plain English, and get a transformed, analysis-ready file back. The backend uses **Google Gemini** for intent, planning, and validation; **pandas** runs the actual transformations so results stay reproducible.
 
 ---
 
-## Key Capabilities
+## What it does
 
-| Capability | Description |
-|---|---|
-| **Natural Language Data Wrangling** | Describe transformations in plain English — "clean this for ML", "remove nulls", "normalize numeric columns" |
-| **Multi-Agent Pipeline** | Intent Understanding → Planning → Execution → Validation, each handled by a specialized AI agent |
-| **Excel AI Assistant** | Upload `.xlsx` files and ask the AI to add formulas, create charts, build dashboards, and analyze data directly in the spreadsheet |
-| **Auto-Wrangling Mode** | Fully automatic pipeline — predicts target column, infers feature types, builds and executes a cleaning plan with zero user input |
-| **RAG-Enhanced Context** | Retrieval-Augmented Generation indexes dataset metadata for smarter, context-aware AI responses |
-| **Feature Type Inference** | Rule-based column classification (numerical, categorical, datetime, sentence, URL, etc.) inspired by the AutoDW research paper |
-| **Dashboard Generation** | Automatic visual dashboard sheets with summary statistics, distributions, and charts embedded in the output Excel file |
-| **Code Generation** | Downloadable Python script that reproduces the exact wrangling pipeline for transparency and reproducibility |
-| **Multi-Sheet Excel Support** | Full support for multi-sheet Excel workbooks — read, transform, and write across sheets |
-| **Conversation Memory** | Follow-up prompts build on previous transformations within the same session |
+| Area | Details |
+|------|---------|
+| **Natural-language wrangling** | Chat-driven cleaning and transforms on uploaded tabular data |
+| **Multi-step pipeline** | Intent → plan → execution (pandas / validated ops or sandboxed generated code) → insights |
+| **Auto-wrangling** | `POST /api/wrangle` predicts a target column, runs **feature type inference (FTI)**, builds a plan, and executes with minimal prompting |
+| **RAG context** | **Yes.** `rag_service.py` builds short text chunks from the dataset profile and retrieves by **token overlap** (in-memory, no vector DB). That text is prepended to Gemini prompts for analyze / plan / some execute paths |
+| **Excel AI** | Upload `.xlsx`, ask for formulas, charts, or a dashboard sheet; download the updated workbook |
+| **Dashboard sheets** | For Excel output, extra sheets (e.g. KPI / category summaries) and native Excel charts can be added when visual outputs are requested |
+| **Downloadable Python script** | Jinja2-based generator for the wrangling pipeline (`GET /api/code/{session_id}`) |
+| **Session memory** | Follow-ups reuse the same session’s file, profile, and conversation history on the backend |
+
+**FTI:** 12 rule-based types (subset aligned with AutoDW): numerical, categorical, datetime, sentence, url, embedded_number, list, ignorable_id, unit, sign, range, formatted_id.
+
+**Auth (prototype):** Sign up / login in the UI stores credentials in **browser `localStorage` only**—there is no server-side user database.
 
 ---
 
-## How It Works
+## How it works (high level)
 
 ```
-Upload Dataset (CSV / Excel)
-        ↓
-Dataset Profiling & RAG Indexing
-        ↓
-User Describes Goal in Natural Language
-        ↓
-Agent 1 → Intent Understanding (Gemini)
-        ↓
-Agent 2 → Transformation Planning (Gemini)
-        ↓
-Agent 3 → Safe Execution (Python/Pandas)
-        ↓
-Agent 4 → Validation & Insight Generation (Gemini)
-        ↓
-Download Clean Dataset + Python Script
+Upload (CSV / Excel)
+    → Profile dataset + index profile chunks for RAG
+    → User message
+    → Gemini: intent + JSON plan
+    → Execute: pandas / predefined ops + optional LLM-generated code (sandboxed)
+    → Optional dashboard sheets for .xlsx
+    → Download file + optional generated .py script
 ```
 
-> **Core principle: LLM thinks, agent plans, code executes** — no hallucinated data, no unsafe operations.
+Principle: **LLM plans; Python executes** on real frames—no direct “LLM edits cells” in the wrangling path.
 
 ---
 
-## Data Transformations Supported
+## Transformations (representative)
 
-- Drop columns and constant columns
-- Handle missing values (drop rows, fill with mean/median/mode)
-- Remove duplicate rows
-- Rename columns
-- Type conversion (int, float, datetime, string)
-- Categorical encoding (Label Encoding)
-- Datetime feature extraction (year, month, day, etc.)
-- Text vectorization (TF-IDF)
-- Numeric normalization (StandardScaler)
-- Custom transformations via LLM-generated Python code (sandboxed execution)
+Implemented via the plan executor and/or generated code, including: drop columns, missing-value handling, dedupe, rename, dtype conversion, label encoding, datetime parts, TF-IDF text columns, numeric standardization, and custom steps from validated LLM-generated code.
 
 ---
 
-## Tech Stack
+## Tech stack (as used in code)
 
-| Layer | Technologies |
-|---|---|
-| **Backend** | Python, FastAPI, Pandas, NumPy, scikit-learn, Jinja2, openpyxl |
-| **LLM** | Google Gemini API (`gemini-2.5-flash`) |
-| **RAG** | Lightweight in-memory token-overlap retrieval |
-| **Frontend** | React 19, React Router, Tailwind CSS, Recharts, Lucide Icons, Axios |
-| **Build** | Vite 7 |
+| Layer | Stack |
+|-------|--------|
+| Backend | Python, FastAPI, pandas, NumPy, scikit-learn, openpyxl, Jinja2, `google-genai` |
+| LLM | Google Gemini (default model from env, typically `gemini-2.5-flash`) |
+| RAG | In-memory chunks from profile + token-overlap retrieval (`backend/app/services/rag_service.py`) |
+| Frontend | React 19, React Router 7, Vite 7, Tailwind CSS 4, Axios, Lucide, **Plotly** (`react-plotly.js`) |
+
+The API process title in code is **AutoDW-Lite** (`main.py` / settings); the product name used in the UI is **Axel AI**.
 
 ---
 
-## Quick Start
+## Quick start
 
 ### Prerequisites
 
-- Python 3.8+
-- Node.js 16+
-- A [Google Gemini API key](https://makersuite.google.com/app/apikey) (free tier works)
+- **Python 3.10+** recommended (3.8 may work; match your environment)
+- **Node.js 20+** recommended for Vite 7
+- A [Google AI Studio API key](https://aistudio.google.com/apikey) for Gemini
 
-### 1. Backend
+### Backend
 
 ```bash
 cd backend
 python -m venv venv
-venv\Scripts\activate        # Windows
-# source venv/bin/activate   # macOS/Linux
+venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-Create a `.env` file in the `backend/` directory:
+Create `backend/.env`:
 
 ```env
-GEMINI_API_KEY=your_gemini_api_key_here
+GEMINI_API_KEY=your_key_here
 GEMINI_MODEL=gemini-2.5-flash
 GEMINI_TIMEOUT_SEC=45
 ```
-
-Start the server:
 
 ```bash
 python main.py
 ```
 
-Backend runs on `http://localhost:8001`
+API: `http://localhost:8001`
 
-### 2. Frontend
+### Frontend
 
 ```bash
 cd frontend
@@ -128,119 +99,80 @@ npm install
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5173`
+App: `http://localhost:5173`
 
-### 3. Use It
+### Typical flow
 
-1. Open `http://localhost:5173` in your browser
-2. Sign up and log in
-3. Go to **Dashboard** → upload a CSV or Excel file
-4. On the **Processing** page, type what you need (e.g. *"Clean this dataset and prepare it for machine learning"*)
-5. Download the processed file and generated Python script from the **Download** page
+1. Open the app, use **Sign up** / **Login** (local demo auth).
+2. **Dashboard** → upload CSV or Excel.
+3. **Processing** → describe the task; run analyze/execute (or use auto-wrangling from the API).
+4. **Download** → processed file, insights, and script link as applicable.
 
 ---
 
-## Project Structure
+## Project structure (main paths)
 
 ```
 backend/
-├── app/
-│   ├── api/
-│   │   └── endpoints.py           # All API routes (data wrangling + Excel AI)
-│   ├── core/
-│   │   └── config.py              # Settings & environment config
-│   ├── services/
-│   │   ├── data_service.py        # Data loading, profiling, transformations, sandboxed code execution
-│   │   ├── llm_service.py         # Gemini-powered multi-agent LLM service
-│   │   ├── rag_service.py         # In-memory RAG for context-aware responses
-│   │   ├── fti_service.py         # Feature Type Inference (rule-based)
-│   │   ├── code_generator.py      # Jinja2-based Python script generator
-│   │   └── excel_ai_service.py    # Excel AI: formulas, charts, dashboards
-│   └── schemas.py                 # Plan validation schemas
-├── main.py                        # FastAPI entry point
+├── main.py
 ├── requirements.txt
-└── uploads/                       # Uploaded & processed files (auto-created)
+├── app/
+│   ├── api/endpoints.py       # REST routes
+│   ├── core/config.py         # Settings (Gemini, paths)
+│   ├── schemas.py
+│   └── services/
+│       ├── data_service.py    # Load, profile, execute plans, Excel output
+│       ├── llm_service.py     # Gemini: intent, plan, insights
+│       ├── rag_service.py     # Profile-based RAG (token overlap)
+│       ├── fti_service.py     # Feature type inference
+│       ├── code_generator.py
+│       └── excel_ai_service.py
+└── uploads/
 
 frontend/
 ├── src/
-│   ├── components/
-│   │   └── Sidebar.jsx            # Navigation sidebar
-│   ├── pages/
-│   │   ├── Home.jsx               # Landing page
-│   │   ├── Login.jsx              # Login
-│   │   ├── Signup.jsx             # Sign up
-│   │   ├── Dashboard.jsx          # Upload & dataset management
-│   │   ├── Processing.jsx         # Chat interface for data wrangling
-│   │   ├── Download.jsx           # Results, insights & downloads
-│   │   ├── About.jsx              # About the project
-│   │   ├── HowItWorks.jsx         # Step-by-step explanation
-│   │   └── Contact.jsx            # Contact info
-│   ├── App.jsx                    # Routing & protected routes
-│   └── main.jsx                   # Entry point
+│   ├── App.jsx
+│   ├── main.jsx
+│   ├── components/            # Sidebar, BrandLogo, ThemeToggle, PlotlyFigure, …
+│   ├── hooks/useTheme.js
+│   └── pages/                 # Home, Login, Signup, Dashboard, Processing, Download, About, HowItWorks, Contact
 ├── package.json
 └── vite.config.js
 ```
 
 ---
 
-## API Endpoints
+## API overview
 
-### Data Wrangling
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/upload` | Upload CSV/Excel dataset |
-| `POST` | `/api/analyze` | Understand intent & generate transformation plan |
-| `POST` | `/api/execute` | Execute plan with LLM code generation + validated fallback |
-| `POST` | `/api/wrangle` | Fully automatic pipeline (predict target, FTI, plan, execute) |
-| `GET` | `/api/code/{session_id}` | Download generated Python wrangling script |
-| `GET` | `/api/download/{filename}` | Download processed dataset |
-| `GET` | `/api/session/{session_id}/insights` | Get generated insights |
-| `GET` | `/api/session/{session_id}/table` | Paginated table data |
-
-### Excel AI
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/excel/upload` | Upload `.xlsx` file for AI processing |
-| `POST` | `/api/excel/ai` | Send natural language request to modify the spreadsheet |
-| `GET` | `/api/excel/download` | Download the updated Excel file |
-| `GET` | `/api/excel/health` | Check Gemini API configuration status |
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/api/upload` | Upload dataset |
+| POST | `/api/analyze` | Intent + plan from natural language |
+| POST | `/api/execute` | Run plan; optional dashboard sheets for Excel |
+| POST | `/api/wrangle` | Full auto pipeline |
+| GET | `/api/code/{session_id}` | Generated Python script |
+| GET | `/api/download/{filename}` | Processed file |
+| GET | `/api/session/{session_id}/insights` | Insights JSON |
+| GET | `/api/session/{session_id}/table` | Paginated preview |
+| POST | `/api/excel/upload` | Excel session upload |
+| POST | `/api/excel/ai` | Natural language Excel edits |
+| GET | `/api/excel/download` | Download updated `.xlsx` |
+| GET | `/api/excel/health` | Gemini configured check |
 
 ---
 
-## Research Inspiration
+## Research note
 
-This project is directly inspired by **Axel AI: Automatic Data Wrangling Leveraging Large Language Models** (ASE 2024).
-
-| AutoDW Paper | Axel AI |
-|---|---|
-| End-to-end automation | Fully automated pipeline with auto-wrangling mode |
-| LLM-assisted planning | Gemini-powered multi-agent architecture |
-| Feature type inference | Rule-based FTI with 12 feature types |
-| Code generation | Sandboxed code execution + downloadable scripts |
-| Research prototype | Full-stack web app with conversational UI |
-
-Key enhancements beyond the paper: no code exposed to users, ChatGPT-style chat interface, Excel AI assistant, RAG-enhanced context, dashboard generation, and a modern React frontend.
-
----
-
-## Environment Variables
-
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `GEMINI_API_KEY` | Yes | — | Google Gemini API key |
-| `GEMINI_MODEL` | No | `gemini-2.5-flash` | Gemini model to use |
-| `GEMINI_TIMEOUT_SEC` | No | `45` | Request timeout in seconds |
+This implementation is inspired by **AutoDW: Automatic Data Wrangling Leveraging Large Language Models** (Lei Liu et al., **ASE 2024**). The ASE paper title is **AutoDW**, not “Axel AI”; **Axel AI** is this team’s system name for a full-stack prototype that adds a web UI, Gemini, lightweight RAG, Excel AI, and related features.
 
 ---
 
 ## License
 
-Academic Prototype — for educational and research purposes.
+Academic prototype — educational and research use.
 
 ## Acknowledgments
 
-- AutoDW research paper (ASE 2024)
+- AutoDW (ASE 2024)
 - Google Gemini API
 - FastAPI and React communities
